@@ -11,14 +11,15 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.0.15",
-    "framer-motion": "^12.6.3",
     "@uidotdev/usehooks": "^2.4.1",
     "clsx": "^2.1.1",
     "csx": "^10.0.2",
+    "framer-motion": "^12.6.3",
     "lucide-react": "^0.483.0",
     "prop-types": "^15.8.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-feather": "^2.0.10",
     "react-router-dom": "^7.4.0",
     "recharts": "^2.15.1",
     "tailwind-merge": "^3.0.2"
