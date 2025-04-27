@@ -14,7 +14,7 @@ const UsersManagementPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [editingUserId, setEditingUserId] = useState(null);
-  const usersPerPage = 5;
+  const usersPerPage = 10;
 
   // État pour le formulaire
   const [formData, setFormData] = useState({

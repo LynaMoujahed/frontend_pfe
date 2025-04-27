@@ -13,7 +13,7 @@ export const Header = ({ collapsed, setCollapsed }) => {
     const handleProfileAction = (action) => {
         setShowProfileMenu(false);
         if (action === "profile") {
-            navigate("/settings"); // Assurez-vous d'avoir cette route configurée
+            navigate("/admin/settings"); // Assurez-vous d'avoir cette route configurée
         } else if (action === "logout") {
             // Ajoutez ici votre logique de déconnexion
             console.log("Déconnexion...");

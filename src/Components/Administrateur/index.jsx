@@ -2,10 +2,7 @@ import {
     ChartColumn, Home, NotepadText, Book, BookOpen,
     Settings, ClipboardCheck, UserCheck, UserPlus, 
     Users, FileText, Award, MessageSquare, Clock,
-    Calendar,
-    Calendar1,
-    CalendarX2Icon,
-    CalendarCheck
+    Calendar,Calendar1,CalendarX2Icon,FileQuestion ,CalendarCheck
 } from "lucide-react";
 
 export const navbarLinks = [
@@ -30,7 +27,7 @@ export const navbarLinks = [
             {
                 label: "Les demandes",
                 icon: Clock,
-                path: "requests", // Chemin indépendant
+                path: "requests", 
             },
         ],
     },
@@ -38,14 +35,19 @@ export const navbarLinks = [
         title: "Formations Médicales",
         links: [
             {
+                label: "Quiz",
+                icon: FileText,
+                path: "/admin/quiz",
+              },
+              {
                 label: "Cours",
                 icon: Book,
-                path: "courses",
-            },
+                path: "/admin/cours",
+              },
             {
                 label: "Calendrier",
                 icon: CalendarCheck,
-                path: "Calendrier",
+                path: "/admin/calendrier",
             },
            
         ],
