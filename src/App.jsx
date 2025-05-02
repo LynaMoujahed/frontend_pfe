@@ -12,83 +12,58 @@ import RegistrationRequestsPage from "./components/Administrateur/gestion/reques
 import ProfilePage from "./components/Administrateur/settings/profile";
 import CalendarPage from "./components/Administrateur/evenement/calendrier";
 import ReclamationSystem from "./components/Administrateur/settings/reclamation";
-import QuizCreationPage from "./Components/Administrateur/quiz/quiz.jsx";
-import CourseManagementPage from "./Components/Administrateur/cours/cours.jsx";
-import Login from "./Components/Auth/Login";
-import Register from "./Components/Auth/Register";
-import ProtectedRoute from "./Components/Auth/ProtectedRoute";
-import Unauthorized from "./Components/Auth/Unauthorized";
+import ApprenantPage from "./Components/Apprenant/ApprenantPage.jsx";
 
 function App() {
-  const router = createBrowserRouter([
-    {
-      path: "/",
-      element: <Home />,
-    },
-    {
-      path: "/login",
-      element: <Login />,
-    },
-    {
-      path: "/register",
-      element: <Register />,
-    },
-    {
-      path: "/unauthorized",
-      element: <Unauthorized />,
-    },
-    {
-      path: "/admin",
-      element: (
-        <ProtectedRoute requiredRole="ROLE_ADMINISTRATEUR">
-          <Layout />
-        </ProtectedRoute>
-      ),
-      children: [
+    const router = createBrowserRouter([
         {
-          index: true, // Ceci rendra DashboardPage la vue par défaut pour "/admin"
-          element: <DashboardPage />,
+            path: "/",
+            element: <Home />,
         },
         {
-          path: "dashboard",
-          element: <DashboardPage />,
+            path: "/admin",
+            element: <Layout />,
+            children: [
+                {
+                    index: true, // Ceci rendra DashboardPage la vue par défaut pour "/admin"
+                    element: <DashboardPage />,
+                },
+                {
+                    path: "dashboard",
+                    element: <DashboardPage />,
+                },
+                {
+                    children: [
+                        {
+                            path: "users",
+                            element: <UsersManagementPage />,
+                        },
+                        {
+                            path: "requests",
+                            element: <RegistrationRequestsPage />,
+                        },
+                    ],
+                },
+                {
+                    path: "Calendrier",
+                    element: <CalendarPage />,
+                },
+                {
+                    path: "settings",
+                    element: <ProfilePage />,
+                },
+                {
+                    path: "reclamation",
+                    element: <ReclamationSystem />,
+                },
+            ],
         },
         {
-          children: [
-            {
-              path: "users",
-              element: <UsersManagementPage />,
-            },
-            {
-              path: "requests",
-              element: <RegistrationRequestsPage />,
-            },
-            {
-              path: "calendrier",
-              element: <CalendarPage />,
-            },
-          ],
-        },
+            path: "/Apprenant",
+            element: < ApprenantPage />,
 
-        {
-          path: "quiz",
-          element: <QuizCreationPage />,
         },
-        {
-          path: "cours",
-          element: <CourseManagementPage />,
-        },
-        {
-          path: "settings",
-          element: <ProfilePage />,
-        },
-        {
-          path: "reclamation",
-          element: <ReclamationSystem />,
-        },
-      ],
-    },
-  ]);
+    ]);
 
   return (
     <ThemeProvider storageKey="theme">
