@@ -9,8 +9,13 @@ import {
   FiChevronUp,
 } from "react-icons/fi";
 import * as XLSX from "xlsx";
+import { useAuth } from "../../../contexts/auth-context";
+import DialogModal from "../../Common/DialogModal";
 
 function QuizCreationPage() {
+  // Récupérer le token d'authentification
+  const { token } = useAuth();
+
   // Fonction pour générer des IDs uniques
   const generateUniqueId = () =>
     `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -18,7 +23,7 @@ function QuizCreationPage() {
   const [quiz, setQuiz] = useState({
     course: null,
     id: "",
-    type: "Training",
+    type: "Evaluation",
     category: "Sterile",
     mainSurface: false,
     main: 0,
@@ -56,10 +61,26 @@ function QuizCreationPage() {
     actions: true,
   });
 
+  // État pour les boîtes de dialogue
+  const [dialog, setDialog] = useState({
+    show: false,
+    title: "",
+    message: "",
+    type: "info", // 'info', 'success', 'error', 'confirm'
+    onConfirm: null,
+    confirmText: "OK",
+    cancelText: "Annuler",
+  });
+
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const response = await fetch("https://127.0.0.1:8000/api/cours");
+        const response = await fetch("https://127.0.0.1:8000/api/cours", {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
         if (!response.ok) {
           const errorData = await response.json();
@@ -89,14 +110,20 @@ function QuizCreationPage() {
               }
             : null,
         });
-        alert(
-          "Erreur lors de la récupération des cours. Veuillez réessayer plus tard."
-        );
+        setDialog({
+          show: true,
+          title: "Erreur",
+          message:
+            "Erreur lors de la récupération des cours. Veuillez réessayer plus tard.",
+          type: "error",
+          onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+          confirmText: "OK",
+        });
       }
     };
 
     fetchCourses();
-  }, []);
+  }, [token]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -123,12 +150,17 @@ function QuizCreationPage() {
       throw new Error("IDModule is required");
     }
 
+    // Ensure quiz.id is a string
+    const idModule = String(quiz.id);
+    console.log("Using IDModule:", idModule);
+
     return skills
       .flatMap((skill) => {
         const baseRecord = {
           cours: quiz.course,
-          IDModule: quiz.id,
-          Type: quiz.type || "Training",
+          IDModule: idModule,
+          idmodule: idModule, // Add both versions to ensure compatibility
+          Type: quiz.type || "Evaluation",
           Category: quiz.category || "Sterile",
           MainSurface: quiz.mainSurface || false,
           Surface: quiz.mainSurface ? quiz.surface : 0,
@@ -162,11 +194,12 @@ function QuizCreationPage() {
       .concat(
         actions.map((action) => ({
           cours: quiz.course,
-          IDModule: quiz.id,
+          IDModule: idModule, // Use the same idModule variable
+          idmodule: idModule, // Add both versions to ensure compatibility
           Action_Nom_FR: action.nameFr || "",
           Action_Nom_EN: action.nameEn || "",
           // Ajoutez les autres champs requis avec des valeurs par défaut
-          Type: quiz.type || "Training",
+          Type: quiz.type || "Evaluation",
           Category: quiz.category || "Sterile",
           MainSurface: quiz.mainSurface || false,
           Surface: quiz.mainSurface ? quiz.surface : 0,
@@ -228,12 +261,52 @@ function QuizCreationPage() {
 
     const validationError = validateQuizData();
     if (validationError) {
-      alert(validationError);
+      setDialog({
+        show: true,
+        title: "Validation",
+        message: validationError,
+        type: "error",
+        onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+        confirmText: "OK",
+      });
       return;
+    }
+
+    // Ensure quiz.id is a string
+    if (quiz.id && typeof quiz.id !== "string") {
+      setQuiz((prev) => ({
+        ...prev,
+        id: String(prev.id),
+      }));
     }
 
     const quizRecords = prepareQuizRecords();
     console.log("Données à envoyer:", quizRecords);
+
+    // Check if IDModule is present in all records
+    const missingIDModule = quizRecords.some(
+      (record) => !record.IDModule && !record.idmodule
+    );
+    if (missingIDModule) {
+      console.error("Erreur: Certains enregistrements n'ont pas d'IDModule");
+
+      // Try to fix the records by adding IDModule where missing
+      let fixedRecords = quizRecords.map((record) => {
+        if (!record.IDModule && !record.idmodule) {
+          console.log("Fixing record without IDModule:", record);
+          return {
+            ...record,
+            IDModule: idModule,
+            idmodule: idModule,
+          };
+        }
+        return record;
+      });
+
+      // Update quizRecords with the fixed records
+      quizRecords = fixedRecords;
+      console.log("Records fixed. Continuing with submission.");
+    }
 
     try {
       setIsLoading(true);
@@ -243,6 +316,7 @@ function QuizCreationPage() {
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(quizRecords),
       });
@@ -256,14 +330,27 @@ function QuizCreationPage() {
       const data = await response.json();
 
       if (data.status === "complete" || data.status === "partial") {
-        alert("Quiz enregistré");
+        // Réinitialiser le formulaire immédiatement après l'enregistrement réussi
+        resetForm();
+
+        // Afficher la boîte de dialogue de confirmation
+        setDialog({
+          show: true,
+          title: "Succès",
+          message: "Quiz enregistré",
+          type: "success",
+          onConfirm: () => {
+            setDialog((prev) => ({ ...prev, show: false }));
+          },
+          confirmText: "OK",
+        });
+
         if (data.error_count > 0) {
           console.error(
             "Erreurs partielles:",
             data.results.filter((r) => !r.success)
           );
         }
-        resetForm();
       } else {
         throw new Error(data.message || "Erreur inconnue");
       }
@@ -273,17 +360,28 @@ function QuizCreationPage() {
         stack: error.stack,
         timestamp: new Date().toISOString(),
       });
-      alert(`Erreur: ${error.message}`);
+
+      setDialog({
+        show: true,
+        title: "Erreur",
+        message: `Erreur: ${error.message}`,
+        type: "error",
+        onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+        confirmText: "OK",
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
   const resetForm = () => {
+    console.log("Réinitialisation du formulaire...");
+
+    // Réinitialiser l'état du quiz
     setQuiz({
       course: null,
       id: "",
-      type: "Training",
+      type: "Evaluation",
       category: "Sterile",
       mainSurface: false,
       main: 0,
@@ -296,6 +394,8 @@ function QuizCreationPage() {
       sriNameFr: "",
       sriNameEn: "",
     });
+
+    // Réinitialiser les compétences
     setSkills([
       {
         id: generateUniqueId(),
@@ -308,7 +408,11 @@ function QuizCreationPage() {
         subSkills: [{ id: generateUniqueId(), nameFr: "", nameEn: "" }],
       },
     ]);
+
+    // Réinitialiser les actions
     setActions([{ id: generateUniqueId(), nameFr: "", nameEn: "" }]);
+
+    console.log("Formulaire réinitialisé avec succès");
   };
 
   const addSkill = () => {
@@ -400,9 +504,64 @@ function QuizCreationPage() {
       if (jsonData.length === 0) return;
 
       const firstRow = jsonData[0];
+
+      // Check if IDModule exists in the first row (check both cases)
+      let idModuleValue = null;
+      if (firstRow.IDModule) {
+        idModuleValue = firstRow.IDModule;
+        console.log("Excel import - Found IDModule:", idModuleValue);
+      } else if (firstRow.idmodule) {
+        idModuleValue = firstRow.idmodule;
+        console.log(
+          "Excel import - Found idmodule (lowercase):",
+          idModuleValue
+        );
+      } else if (firstRow.Idmodule) {
+        idModuleValue = firstRow.Idmodule;
+        console.log(
+          "Excel import - Found Idmodule (mixed case):",
+          idModuleValue
+        );
+      } else {
+        // Try to find any key that might be IDModule (case-insensitive)
+        for (const key in firstRow) {
+          if (key.toLowerCase() === "idmodule") {
+            idModuleValue = firstRow[key];
+            console.log(
+              `Excel import - Found IDModule with key ${key}:`,
+              idModuleValue
+            );
+            break;
+          }
+        }
+
+        // If still not found, generate a default value
+        if (!idModuleValue) {
+          idModuleValue = "excel_import_" + Date.now();
+          console.log(
+            "Excel import - Generated default IDModule:",
+            idModuleValue
+          );
+
+          setDialog({
+            show: true,
+            title: "Avertissement d'importation",
+            message:
+              "Le fichier Excel ne contient pas de colonne IDModule. Un identifiant par défaut a été généré.",
+            type: "warning",
+            onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+            confirmText: "OK",
+          });
+        }
+      }
+
+      // Ensure IDModule is a string
+      const idModule = String(idModuleValue);
+      console.log("Excel import - Using IDModule:", idModule);
+
       setQuiz({
         ...quiz,
-        id: firstRow.IDModule || quiz.id,
+        id: idModule,
         type: firstRow.Type || quiz.type,
         category: firstRow.Category || quiz.category,
         mainSurface: firstRow.Main === 1,
@@ -467,7 +626,14 @@ function QuizCreationPage() {
       setActions(Array.from(actionsMap.values()));
     } catch (error) {
       console.error("Error importing Excel file:", error);
-      alert(`Une erreur est survenue lors de l'importation: ${error.message}`);
+      setDialog({
+        show: true,
+        title: "Erreur d'importation",
+        message: `Une erreur est survenue lors de l'importation: ${error.message}`,
+        type: "error",
+        onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+        confirmText: "OK",
+      });
     }
   };
 
@@ -595,7 +761,7 @@ function QuizCreationPage() {
                       className="block w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 dark:bg-gray-700 dark:text-white"
                       required
                     >
-                      <option value="Training">Formation</option>
+                      <option value="Evaluation">Evaluation</option>
                     </select>
                   </div>
                   <div className="space-y-1">
@@ -1157,6 +1323,19 @@ function QuizCreationPage() {
             )}
           </button>
         </div>
+
+        {/* Boîte de dialogue pour les notifications et confirmations */}
+        {dialog.show && (
+          <DialogModal
+            title={dialog.title}
+            message={dialog.message}
+            type={dialog.type}
+            onClose={() => setDialog((prev) => ({ ...prev, show: false }))}
+            onConfirm={dialog.onConfirm}
+            confirmText={dialog.confirmText}
+            cancelText={dialog.cancelText}
+          />
+        )}
       </div>
     </div>
   );

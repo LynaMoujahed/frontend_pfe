@@ -11,11 +11,13 @@ import {
   FiBook,
   FiFileText,
   FiHelpCircle,
-  FiAlertTriangle,
 } from "react-icons/fi";
+import { useAuth } from "../../../contexts/auth-context";
+import DialogModal from "../../Common/DialogModal";
 
 function CourseManagementPage() {
   const API_BASE_URL = "https://127.0.0.1:8000/api";
+  const { token } = useAuth();
   const [showAddCourseForm, setShowAddCourseForm] = useState(false);
   const [courses, setCourses] = useState([]);
   const [error, setError] = useState(null);
@@ -30,10 +32,26 @@ function CourseManagementPage() {
   const [editingAction, setEditingAction] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  // État pour les boîtes de dialogue
+  const [dialog, setDialog] = useState({
+    show: false,
+    title: "",
+    message: "",
+    type: "info", // 'info', 'success', 'error', 'confirm'
+    onConfirm: null,
+    confirmText: "OK",
+    cancelText: "Annuler",
+  });
+
   // Fonction pour récupérer tous les cours
   const fetchCourses = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/cours`);
+      const response = await fetch(`${API_BASE_URL}/cours`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -76,11 +94,16 @@ function CourseManagementPage() {
     };
 
     loadCourses();
-  }, []);
+  }, [token]);
 
   const fetchQuizzesForCourse = async (courseId) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/quiz?cours=${courseId}`);
+      const response = await fetch(`${API_BASE_URL}/quiz?cours=${courseId}`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -89,139 +112,80 @@ function CourseManagementPage() {
       const data = await response.json();
       const quizzesData = data["hydra:member"] || data;
 
-      // Structure optimisée pour le regroupement
-      const quizzesMap = new Map();
+      // Traiter les quiz avec leurs compétences et sous-compétences
+      const processedQuizzes = quizzesData.map((quiz) => {
+        // S'assurer que les noms sont des chaînes complètes
+        const processedQuiz = {
+          ...quiz,
+          id: quiz.id || `quiz-${Math.random().toString(36).substr(2, 9)}`,
+          Nom_FR: quiz.Nom_FR || "",
+          Nom_EN: quiz.Nom_EN || "",
+        };
 
-      quizzesData.forEach((quiz) => {
-        if (!quizzesMap.has(quiz.IDModule)) {
-          // S'assurer que les noms sont des chaînes complètes
-          const cleanQuiz = {
-            ...quiz,
-            id: quiz.id || `quiz-${Math.random().toString(36).substr(2, 9)}`,
-            Nom_FR: quiz.Nom_FR || "",
-            Nom_EN: quiz.Nom_EN || "",
-            competences: new Map(),
-          };
-
-          quizzesMap.set(quiz.IDModule, cleanQuiz);
-        }
-
-        const currentQuiz = quizzesMap.get(quiz.IDModule);
-
-        if (quiz.Competence_ID) {
-          if (!currentQuiz.competences.has(quiz.Competence_ID)) {
-            // S'assurer que les noms des compétences sont des chaînes complètes
-            const cleanCompetence = {
-              Competence_ID: quiz.Competence_ID,
-              Comp_Categorie_FR: quiz.Comp_Categorie_FR || "",
-              Comp_Categorie_EN: quiz.Comp_Categorie_EN || "",
-              Competence_Nom_FR: quiz.Competence_Nom_FR || "",
-              Competence_Nom_EN: quiz.Competence_Nom_EN || "",
-              sousCompetences: new Map(),
-              actions: new Map(),
+        // Traiter les compétences si elles existent
+        if (quiz.competences && Array.isArray(quiz.competences)) {
+          processedQuiz.competences = quiz.competences.map((competence) => {
+            // Traiter chaque compétence
+            const processedCompetence = {
+              ...competence,
+              id: competence.id,
+              Competence_ID: competence.id,
+              Competence_Nom_FR: competence.nom_fr || "",
+              Competence_Nom_EN: competence.nom_en || "",
+              Comp_Categorie_FR: competence.categorie_fr || "",
+              Comp_Categorie_EN: competence.categorie_en || "",
             };
 
-            currentQuiz.competences.set(quiz.Competence_ID, cleanCompetence);
-          }
-
-          const currentCompetence = currentQuiz.competences.get(
-            quiz.Competence_ID
-          );
-
-          if (quiz.SousCompetence_Nom_FR || quiz.SousCompetence_Nom_EN) {
-            // Utiliser un identifiant unique pour éviter les doublons
-            const subKey = `${quiz.SousCompetence_Nom_FR}-${quiz.SousCompetence_Nom_EN}`;
-
-            if (!currentCompetence.sousCompetences.has(subKey)) {
-              // S'assurer que les noms des sous-compétences sont des chaînes complètes
-              const cleanSousCompetence = {
-                id: `sub-${Math.random().toString(36).substr(2, 9)}`,
-                SousCompetence_Nom_FR: quiz.SousCompetence_Nom_FR || "",
-                SousCompetence_Nom_EN: quiz.SousCompetence_Nom_EN || "",
-              };
-
-              currentCompetence.sousCompetences.set(
-                subKey,
-                cleanSousCompetence
-              );
+            // Traiter les sous-compétences si elles existent
+            if (
+              competence.sousCompetences &&
+              Array.isArray(competence.sousCompetences)
+            ) {
+              processedCompetence.sousCompetences =
+                competence.sousCompetences.map((sousComp) => ({
+                  id:
+                    sousComp.id ||
+                    `sub-${Math.random().toString(36).substr(2, 9)}`,
+                  SousCompetence_Nom_FR: sousComp.nom_fr || "",
+                  SousCompetence_Nom_EN: sousComp.nom_en || "",
+                }));
+            } else {
+              processedCompetence.sousCompetences = [];
             }
-          }
 
-          if (quiz.Action_Nom_FR || quiz.Action_Nom_EN) {
-            // Utiliser un identifiant unique pour éviter les doublons
-            const actionKey = `${quiz.Action_Nom_FR}-${quiz.Action_Nom_EN}`;
+            return processedCompetence;
+          });
+        } else {
+          processedQuiz.competences = [];
+        }
 
-            if (!currentCompetence.actions.has(actionKey)) {
-              // S'assurer que les noms des actions sont des chaînes complètes
-              const cleanAction = {
-                id: `act-${Math.random().toString(36).substr(2, 9)}`,
-                Action_Nom_FR: quiz.Action_Nom_FR || "",
-                Action_Nom_EN: quiz.Action_Nom_EN || "",
-                Action_Categorie_FR: quiz.Action_Categorie_FR || "",
-                Action_Categorie_EN: quiz.Action_Categorie_EN || "",
-              };
+        // Traiter les actions si elles existent
+        if (quiz.actions && Array.isArray(quiz.actions)) {
+          processedQuiz.actions = quiz.actions.map((action) => ({
+            id: action.id || `act-${Math.random().toString(36).substr(2, 9)}`,
+            Action_Nom_FR: action.nom_fr || "",
+            Action_Nom_EN: action.nom_en || "",
+            Action_Categorie_FR: action.categorie_fr || "",
+            Action_Categorie_EN: action.categorie_en || "",
+          }));
+        } else {
+          processedQuiz.actions = [];
+        }
 
-              currentCompetence.actions.set(actionKey, cleanAction);
-            }
-          }
+        return processedQuiz;
+      });
+
+      // Regrouper les quiz par IDModule pour éviter les doublons
+      const quizzesByIDModule = {};
+      processedQuizzes.forEach((quiz) => {
+        if (!quizzesByIDModule[quiz.IDModule]) {
+          quizzesByIDModule[quiz.IDModule] = quiz;
         }
       });
 
-      // Traiter les actions au niveau du quiz (sans compétence associée)
-      quizzesData.forEach((quiz) => {
-        // Log pour déboguer les actions au niveau du quiz
-        if (quiz.Action_Nom_FR || quiz.Action_Nom_EN) {
-        }
-
-        if (
-          // Accepter différentes valeurs qui pourraient indiquer une action au niveau du quiz
-          (quiz.Competence_ID === 0 ||
-            quiz.Competence_ID === null ||
-            quiz.Competence_ID === undefined ||
-            quiz.Competence_ID === "") &&
-          (quiz.Action_Nom_FR || quiz.Action_Nom_EN)
-        ) {
-          const currentQuiz = quizzesMap.get(quiz.IDModule);
-          if (currentQuiz) {
-            // Initialiser le tableau d'actions si nécessaire
-            if (!currentQuiz.actions) {
-              currentQuiz.actions = [];
-            }
-
-            // Vérifier si l'action existe déjà pour éviter les doublons
-            const actionExists = currentQuiz.actions.some(
-              (a) =>
-                a.Action_Nom_FR === quiz.Action_Nom_FR &&
-                a.Action_Nom_EN === quiz.Action_Nom_EN
-            );
-
-            if (!actionExists) {
-              currentQuiz.actions.push({
-                id: quiz.id, // Utiliser l'ID réel de la base de données
-                Action_Nom_FR: quiz.Action_Nom_FR || "",
-                Action_Nom_EN: quiz.Action_Nom_EN || "",
-                Action_Categorie_FR: quiz.Action_Categorie_FR || "",
-                Action_Categorie_EN: quiz.Action_Categorie_EN || "",
-              });
-            }
-          }
-        }
-      });
-
-      // Conversion finale en structure utilisable
-      const finalQuizzes = Array.from(quizzesMap.values()).map((quiz) => ({
-        ...quiz,
-        actions: quiz.actions || [],
-        competences: Array.from(quiz.competences.values()).map((comp) => ({
-          ...comp,
-          id: comp.Competence_ID,
-          sousCompetences: Array.from(comp.sousCompetences.values()),
-          actions: Array.from(comp.actions.values()),
-        })),
-      }));
-
-      return finalQuizzes;
+      return Object.values(quizzesByIDModule);
     } catch (error) {
+      console.error("Error fetching quizzes:", error);
       return [];
     }
   };
@@ -233,6 +197,7 @@ function CourseManagementPage() {
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(courseData),
       });
@@ -257,6 +222,7 @@ function CourseManagementPage() {
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(courseData),
       });
@@ -276,6 +242,9 @@ function CourseManagementPage() {
     try {
       const response = await fetch(`${API_BASE_URL}/cours/${id}`, {
         method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
 
       if (!response.ok) {
@@ -317,6 +286,7 @@ function CourseManagementPage() {
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           ...quizData,
@@ -355,6 +325,7 @@ function CourseManagementPage() {
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(quizData),
       });
@@ -387,6 +358,7 @@ function CourseManagementPage() {
           method: "DELETE",
           headers: {
             Accept: "application/json",
+            Authorization: `Bearer ${token}`,
           },
         }
       );
@@ -420,8 +392,28 @@ function CourseManagementPage() {
       });
       setCourses([...courses, createdCourse]);
       setShowAddCourseForm(false);
+
+      // Afficher une boîte de dialogue de succès
+      setDialog({
+        show: true,
+        title: "Succès",
+        message: "Cours ajouté avec succès",
+        type: "success",
+        onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+        confirmText: "OK",
+      });
     } catch (err) {
       setError(err.message);
+
+      // Afficher une boîte de dialogue d'erreur
+      setDialog({
+        show: true,
+        title: "Erreur",
+        message: `Échec de l'ajout du cours: ${err.message}`,
+        type: "error",
+        onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+        confirmText: "OK",
+      });
     }
   };
 
@@ -435,22 +427,72 @@ function CourseManagementPage() {
         courses.map((course) => (course.id === updated.id ? updated : course))
       );
       setEditingCourse(null);
+
+      // Afficher une boîte de dialogue de succès
+      setDialog({
+        show: true,
+        title: "Succès",
+        message: "Cours mis à jour avec succès",
+        type: "success",
+        onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+        confirmText: "OK",
+      });
     } catch (err) {
       setError(err.message);
+
+      // Afficher une boîte de dialogue d'erreur
+      setDialog({
+        show: true,
+        title: "Erreur",
+        message: `Échec de la mise à jour du cours: ${err.message}`,
+        type: "error",
+        onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+        confirmText: "OK",
+      });
     }
   };
 
   const handleDeleteCourse = async (courseId) => {
-    if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce cours ?")) {
-      return;
-    }
+    // Afficher une boîte de dialogue de confirmation
+    setDialog({
+      show: true,
+      title: "Confirmation",
+      message: "Êtes-vous sûr de vouloir supprimer ce cours ?",
+      type: "confirm",
+      onConfirm: async () => {
+        setDialog((prev) => ({ ...prev, show: false }));
 
-    try {
-      await deleteCourse(courseId);
-      setCourses(courses.filter((course) => course.id !== courseId));
-    } catch (err) {
-      setError(err.message);
-    }
+        try {
+          await deleteCourse(courseId);
+          setCourses(courses.filter((course) => course.id !== courseId));
+
+          // Afficher une boîte de dialogue de succès
+          setDialog({
+            show: true,
+            title: "Succès",
+            message: "Cours supprimé avec succès",
+            type: "success",
+            onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+            confirmText: "OK",
+          });
+        } catch (err) {
+          setError(err.message);
+
+          // Afficher une boîte de dialogue d'erreur
+          setDialog({
+            show: true,
+            title: "Erreur",
+            message: `Échec de la suppression du cours: ${err.message}`,
+            type: "error",
+            onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+            confirmText: "OK",
+          });
+        }
+      },
+      onCancel: () => setDialog((prev) => ({ ...prev, show: false })),
+      cancelText: "Annuler",
+      confirmText: "Supprimer",
+    });
   };
 
   const handleUpdateQuiz = async (updatedQuiz) => {
@@ -478,13 +520,26 @@ function CourseManagementPage() {
       );
       setEditingQuiz(null);
 
-      // Afficher une alerte pour informer l'utilisateur que le quiz a été enregistré
-      alert("Quiz enregistré");
+      // Afficher une boîte de dialogue pour informer l'utilisateur que le quiz a été enregistré
+      setDialog({
+        show: true,
+        title: "Succès",
+        message: "Quiz enregistré",
+        type: "success",
+        onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+        confirmText: "OK",
+      });
     } catch (err) {
       setError(err.message);
-      alert(
-        "Erreur lors de l'enregistrement des modifications : " + err.message
-      );
+      setDialog({
+        show: true,
+        title: "Erreur",
+        message:
+          "Erreur lors de l'enregistrement des modifications : " + err.message,
+        type: "error",
+        onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+        confirmText: "OK",
+      });
     }
   };
 
@@ -511,7 +566,14 @@ function CourseManagementPage() {
       // Essayer de mettre à jour le backend
       try {
         if (!quiz.IDModule) {
-          alert("Paramètres MainSurface mis à jour localement");
+          setDialog({
+            show: true,
+            title: "Information",
+            message: "Paramètres MainSurface mis à jour localement",
+            type: "info",
+            onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+            confirmText: "OK",
+          });
           return;
         }
 
@@ -528,58 +590,115 @@ function CourseManagementPage() {
           updated.quiz && updated.quiz.Surface === quiz.Surface;
 
         if (mainUpdated && surfaceUpdated) {
-          alert(
-            "Tous les paramètres (MainSurface, Main et Surface) ont été mis à jour avec succès"
-          );
+          setDialog({
+            show: true,
+            title: "Succès",
+            message:
+              "Tous les paramètres (MainSurface, Main et Surface) ont été mis à jour avec succès",
+            type: "success",
+            onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+            confirmText: "OK",
+          });
         } else {
-          alert(
-            "Le paramètre MainSurface a été mis à jour avec succès, mais les valeurs Main et Surface ne sont pas synchronisées avec le serveur (limitation du backend actuel)."
-          );
+          setDialog({
+            show: true,
+            title: "Information",
+            message:
+              "Le paramètre MainSurface a été mis à jour avec succès, mais les valeurs Main et Surface ne sont pas synchronisées avec le serveur (limitation du backend actuel).",
+            type: "info",
+            onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+            confirmText: "OK",
+          });
         }
       } catch (backendErr) {
-        alert(
-          "Les paramètres ont été mis à jour localement, mais n'ont pas pu être synchronisés avec le serveur."
-        );
+        setDialog({
+          show: true,
+          title: "Avertissement",
+          message:
+            "Les paramètres ont été mis à jour localement, mais n'ont pas pu être synchronisés avec le serveur.",
+          type: "error",
+          onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+          confirmText: "OK",
+        });
       }
     } catch (err) {
-      alert(
-        "Erreur lors de la mise à jour des paramètres MainSurface: " +
-          err.message
-      );
+      setDialog({
+        show: true,
+        title: "Erreur",
+        message:
+          "Erreur lors de la mise à jour des paramètres MainSurface: " +
+          err.message,
+        type: "error",
+        onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+        confirmText: "OK",
+      });
       setError(err.message);
     }
   };
 
   const handleDeleteQuiz = async (courseId, quizIDModule) => {
-    if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce quiz ?")) {
-      return;
-    }
+    // Afficher une boîte de dialogue de confirmation
+    setDialog({
+      show: true,
+      title: "Confirmation",
+      message: "Êtes-vous sûr de vouloir supprimer ce quiz ?",
+      type: "confirm",
+      onConfirm: async () => {
+        setDialog((prev) => ({ ...prev, show: false }));
 
-    try {
-      const { success, message } = await deleteQuiz(quizIDModule);
+        try {
+          const { success, message } = await deleteQuiz(quizIDModule);
 
-      if (success) {
-        setCourses((prevCourses) =>
-          prevCourses.map((course) =>
-            course.id === courseId
-              ? {
-                  ...course,
-                  quizzes:
-                    course.quizzes?.filter(
-                      (q) => q.IDModule !== quizIDModule
-                    ) || [],
-                }
-              : course
-          )
-        );
-        alert("Quiz supprimé avec succès");
-      } else {
-        alert(message || "Le quiz n'a pas pu être supprimé");
-      }
-    } catch (err) {
-      console.error("Delete operation failed:", err);
-      alert(`Échec de la suppression: ${err.message}`);
-    }
+          if (success) {
+            setCourses((prevCourses) =>
+              prevCourses.map((course) =>
+                course.id === courseId
+                  ? {
+                      ...course,
+                      quizzes:
+                        course.quizzes?.filter(
+                          (q) => q.IDModule !== quizIDModule
+                        ) || [],
+                    }
+                  : course
+              )
+            );
+
+            // Afficher une boîte de dialogue de succès
+            setDialog({
+              show: true,
+              title: "Succès",
+              message: "Quiz supprimé avec succès",
+              type: "success",
+              onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+              confirmText: "OK",
+            });
+          } else {
+            // Afficher une boîte de dialogue d'erreur
+            setDialog({
+              show: true,
+              title: "Erreur",
+              message: message || "Le quiz n'a pas pu être supprimé",
+              type: "error",
+              onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+              confirmText: "OK",
+            });
+          }
+        } catch (err) {
+          console.error("Delete operation failed:", err);
+          // Afficher une boîte de dialogue d'erreur
+          setDialog({
+            show: true,
+            title: "Erreur",
+            message: `Échec de la suppression: ${err.message}`,
+            type: "error",
+            onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+            confirmText: "OK",
+          });
+        }
+      },
+      onCancel: () => setDialog((prev) => ({ ...prev, show: false })),
+    });
   };
 
   const handleUpdateCompetence = async (quiz) => {
@@ -669,25 +788,28 @@ function CourseManagementPage() {
     }
 
     if (!quiz) {
-      alert(`Quiz avec ID ${quizId} non trouvé`);
+      setDialog({
+        show: true,
+        title: "Erreur",
+        message: `Quiz avec ID ${quizId} non trouvé`,
+        type: "error",
+        onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+        confirmText: "OK",
+      });
       return;
     }
 
-    // Générer un ID unique pour la nouvelle compétence (en tant qu'entier)
-    // Utiliser parseInt pour s'assurer que c'est bien un nombre
-    const competenceId = parseInt(Date.now());
-
-    // Initialiser la nouvelle compétence avec toutes les propriétés nécessaires
+    // Initialiser la nouvelle compétence avec les propriétés nécessaires pour l'API
+    // Laisser les champs vides pour que l'utilisateur les remplisse
     const newCompetenceData = {
       courseId, // ID du cours parent (important pour le rechargement après création)
-      quizId, // IDModule du quiz parent (identifiant unique du quiz)
-      competenceId, // ID unique pour la nouvelle compétence
-      Competence_ID: competenceId, // Même ID pour la propriété Competence_ID
+      quizId, // IDModule du quiz parent
+      quiz_id: quiz.id, // ID réel du quiz pour l'API
+      Competence_Nom_FR: "", // Nom en français (requis) - champ vide
+      Competence_Nom_EN: "", // Nom en anglais (requis) - champ vide
       Comp_Categorie_FR: "", // Catégorie en français (optionnel)
       Comp_Categorie_EN: "", // Catégorie en anglais (optionnel)
-      Competence_Nom_FR: "", // Nom en français (requis)
-      Competence_Nom_EN: "", // Nom en anglais (requis)
-      quiz: quiz, // Référence à l'objet quiz parent (contient toutes les infos du quiz)
+      quiz: quiz, // Référence à l'objet quiz parent
     };
 
     console.log("Initialisation de newCompetence:", newCompetenceData);
@@ -702,31 +824,14 @@ function CourseManagementPage() {
 
     try {
       console.log("newCompetence:", newCompetence);
-      const { quizId, competenceId, quiz } = newCompetence;
-      console.log(
-        "quizId:",
-        quizId,
-        "competenceId:",
-        competenceId,
-        "quiz:",
-        quiz
-      );
+      const { quizId, quiz_id, quiz } = newCompetence;
 
-      // Vérifier que les champs obligatoires sont remplis
-      if (
-        !newCompetence.Competence_Nom_FR ||
-        !newCompetence.Competence_Nom_EN
-      ) {
-        alert(
-          "Veuillez remplir les noms de la compétence en français et en anglais."
-        );
-        return;
-      }
+      // La validation des champs obligatoires a été supprimée
 
       // Créer la nouvelle compétence à ajouter à l'interface
       const newCompetenceObj = {
-        id: competenceId,
-        Competence_ID: competenceId,
+        id: Date.now(), // ID temporaire pour l'interface
+        Competence_ID: Date.now(), // ID temporaire pour l'interface
         Comp_Categorie_FR: newCompetence.Comp_Categorie_FR || "",
         Comp_Categorie_EN: newCompetence.Comp_Categorie_EN || "",
         Competence_Nom_FR: newCompetence.Competence_Nom_FR,
@@ -757,33 +862,32 @@ function CourseManagementPage() {
         })
       );
 
-      // Créer la compétence dans la base de données
+      // Créer la compétence dans la base de données en utilisant les champs du formulaire
       const requestData = {
-        IDModule: quizId,
-        Nom_FR: quiz.Nom_FR,
-        Nom_EN: quiz.Nom_EN,
-        Type: quiz.Type || "",
-        Category: quiz.Category || "Sterile",
-        MainSurface: quiz.MainSurface || false,
-        Main: quiz.Main || 0,
-        Surface: quiz.Surface || 0,
-        // S'assurer que Competence_ID est un nombre et non une chaîne
-        Competence_ID: parseInt(competenceId),
-        Competence_Nom_FR: newCompetence.Competence_Nom_FR,
-        Competence_Nom_EN: newCompetence.Competence_Nom_EN,
-        Comp_Categorie_FR: newCompetence.Comp_Categorie_FR || "",
-        Comp_Categorie_EN: newCompetence.Comp_Categorie_EN || "",
+        quiz_id: quiz_id, // ID du quiz pour l'API
+        nom_fr: newCompetence.Competence_Nom_FR,
+        nom_en: newCompetence.Competence_Nom_EN,
+        categorie_fr: newCompetence.Comp_Categorie_FR || "",
+        categorie_en: newCompetence.Comp_Categorie_EN || "",
       };
 
       console.log("Données envoyées pour createCompetence:", requestData);
 
+      // Utiliser le bon endpoint pour créer une compétence
       const response = await fetch(`${API_BASE_URL}/quiz/competence/create`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(requestData),
+        body: JSON.stringify({
+          IDModule: newCompetence.quizId, // Utiliser IDModule au lieu de quiz_id
+          nom_fr: newCompetence.Competence_Nom_FR,
+          nom_en: newCompetence.Competence_Nom_EN,
+          categorie_fr: newCompetence.Comp_Categorie_FR || "",
+          categorie_en: newCompetence.Comp_Categorie_EN || "",
+        }),
       });
 
       console.log("Statut de la réponse:", response.status);
@@ -841,76 +945,114 @@ function CourseManagementPage() {
         }
       }, 1000); // Attendre 1 seconde avant de recharger
 
-      alert("Compétence ajoutée avec succès");
+      setDialog({
+        show: true,
+        title: "Succès",
+        message: "Compétence ajoutée avec succès",
+        type: "success",
+        onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+        confirmText: "OK",
+      });
     } catch (err) {
       console.error("Erreur lors de l'ajout de la compétence:", err);
-      alert(`Échec de l'ajout: ${err.message}`);
+      setDialog({
+        show: true,
+        title: "Erreur",
+        message: `Échec de l'ajout: ${err.message}`,
+        type: "error",
+        onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+        confirmText: "OK",
+      });
     }
   };
 
   const handleDeleteCompetence = async (courseId, quizId, competenceId) => {
-    if (
-      !window.confirm("Êtes-vous sûr de vouloir supprimer cette compétence ?")
-    ) {
-      return;
-    }
+    // Afficher une boîte de dialogue de confirmation
+    setDialog({
+      show: true,
+      title: "Confirmation",
+      message: "Êtes-vous sûr de vouloir supprimer cette compétence ?",
+      type: "confirm",
+      onConfirm: async () => {
+        setDialog((prev) => ({ ...prev, show: false }));
 
-    try {
-      // Trouver le quiz pour obtenir son IDModule
-      let quizIDModule = null;
-      for (const course of courses) {
-        for (const quiz of course.quizzes || []) {
-          if (quiz.IDModule === quizId) {
-            quizIDModule = quiz.IDModule;
-            break;
+        try {
+          // Trouver le quiz pour obtenir son IDModule
+          let quizIDModule = null;
+          for (const course of courses) {
+            for (const quiz of course.quizzes || []) {
+              if (quiz.IDModule === quizId) {
+                quizIDModule = quiz.IDModule;
+                break;
+              }
+            }
+            if (quizIDModule) break;
           }
+
+          if (!quizIDModule) {
+            throw new Error(`Quiz avec ID ${quizId} non trouvé`);
+          }
+
+          // Appeler l'API pour supprimer la compétence
+          const response = await fetch(
+            `${API_BASE_URL}/quiz/competence/${quizIDModule}/${competenceId}`,
+            {
+              method: "DELETE",
+              headers: {
+                Accept: "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || "Failed to delete competence");
+          }
+
+          // Mettre à jour l'état local
+          setCourses(
+            courses.map((course) => ({
+              ...course,
+              quizzes:
+                course.quizzes?.map((quiz) =>
+                  quiz.IDModule === quizId
+                    ? {
+                        ...quiz,
+                        competences: quiz.competences.filter(
+                          (c) => c.Competence_ID !== competenceId
+                        ),
+                      }
+                    : quiz
+                ) || [],
+            }))
+          );
+
+          // Afficher une boîte de dialogue de succès
+          setDialog({
+            show: true,
+            title: "Succès",
+            message: "Compétence supprimée avec succès",
+            type: "success",
+            onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+            confirmText: "OK",
+          });
+        } catch (err) {
+          console.error("Error deleting competence:", err);
+          setDialog({
+            show: true,
+            title: "Erreur",
+            message: `Échec de la suppression: ${err.message}`,
+            type: "error",
+            onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+            confirmText: "OK",
+          });
         }
-        if (quizIDModule) break;
-      }
-
-      if (!quizIDModule) {
-        throw new Error(`Quiz avec ID ${quizId} non trouvé`);
-      }
-
-      // Appeler l'API pour supprimer la compétence
-      const response = await fetch(
-        `${API_BASE_URL}/quiz/competence/${quizIDModule}/${competenceId}`,
-        {
-          method: "DELETE",
-          headers: {
-            Accept: "application/json",
-          },
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to delete competence");
-      }
-
-      // Mettre à jour l'état local
-      setCourses(
-        courses.map((course) => ({
-          ...course,
-          quizzes:
-            course.quizzes?.map((quiz) =>
-              quiz.IDModule === quizId
-                ? {
-                    ...quiz,
-                    competences: quiz.competences.filter(
-                      (c) => c.Competence_ID !== competenceId
-                    ),
-                  }
-                : quiz
-            ) || [],
-        }))
-      );
-
-      alert("Compétence supprimée avec succès");
-    } catch (err) {
-      console.error("Error deleting competence:", err);
-      alert(`Échec de la suppression: ${err.message}`);
-    }
+      },
+      onCancel: () => setDialog((prev) => ({ ...prev, show: false })),
+      cancelText: "Annuler",
+      confirmText: "Supprimer",
+    });
   };
 
   const handleAddSousCompetence = async (courseId, quizId, competenceId) => {
@@ -940,111 +1082,32 @@ function CourseManagementPage() {
         throw new Error(`Compétence avec ID ${competenceId} non trouvée`);
       }
 
-      // Générer un ID unique pour la nouvelle sous-compétence (en tant qu'entier)
+      // Générer un ID unique pour la nouvelle sous-compétence
       const sousCompId = Date.now();
 
-      // Mettre à jour l'état local immédiatement pour une meilleure expérience utilisateur
-      setCourses(
-        courses.map((course) => ({
-          ...course,
-          quizzes:
-            course.quizzes?.map((q) =>
-              q.IDModule === quizId
-                ? {
-                    ...q,
-                    competences: q.competences.map((c) =>
-                      c.Competence_ID === competenceId
-                        ? {
-                            ...c,
-                            sousCompetences: [
-                              ...(c.sousCompetences || []),
-                              {
-                                id: sousCompId,
-                                SousCompetence_Nom_FR:
-                                  "Nouvelle Sous-compétence",
-                                SousCompetence_Nom_EN: "New Sub-competence",
-                              },
-                            ],
-                          }
-                        : c
-                    ),
-                  }
-                : q
-            ) || [],
-        }))
-      );
-
-      // Créer la sous-compétence dans la base de données
-      const requestData = {
-        IDModule: quizId,
-        Nom_FR: quiz.Nom_FR,
-        Nom_EN: quiz.Nom_EN,
-        Type: quiz.Type || "",
-        Category: quiz.Category || "Sterile",
-        MainSurface: quiz.MainSurface || false,
-        Main: quiz.Main || 0,
-        Surface: quiz.Surface || 0,
-        Competence_ID: competenceId,
-        Competence_Nom_FR: competence.Competence_Nom_FR,
-        Competence_Nom_EN: competence.Competence_Nom_EN,
-        Comp_Categorie_FR: competence.Comp_Categorie_FR || "",
-        Comp_Categorie_EN: competence.Comp_Categorie_EN || "",
-        SousCompetence_Nom_FR: "Nouvelle Sous-compétence",
-        SousCompetence_Nom_EN: "New Sub-competence",
-      };
-
-      console.log("Données envoyées pour createSousCompetence:", requestData);
-
-      let response;
-      try {
-        response = await fetch(`${API_BASE_URL}/quiz/sous-competence/create`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify(requestData),
-        });
-
-        console.log("Statut de la réponse:", response.status);
-
-        if (!response.ok) {
-          let errorData;
-          try {
-            errorData = await response.json();
-            console.log("Données d'erreur:", errorData);
-          } catch (jsonError) {
-            console.error(
-              "Erreur lors de la lecture de la réponse JSON:",
-              jsonError
-            );
-            const text = await response.text();
-            console.log("Réponse texte brute:", text);
-            throw new Error(
-              `Échec de la création de la sous-compétence: ${response.status} - ${text}`
-            );
-          }
-          throw new Error(
-            errorData.message || "Échec de la création de la sous-compétence"
-          );
-        }
-      } catch (fetchError) {
-        console.error("Erreur lors de la requête fetch:", fetchError);
-        throw fetchError;
-      }
-
-      const responseData = await response.json();
-      console.log("Sous-compétence créée avec succès:", responseData);
-
-      // Recharger les données complètes pour s'assurer que nous avons les dernières informations
-      console.log("Sous-compétence ajoutée avec succès, recharger les données");
-      const refreshedCourses = await fetchCourses();
-      setCourses(refreshedCourses);
-
-      alert("Sous-compétence ajoutée avec succès");
+      // Ouvrir le formulaire pour créer une nouvelle sous-compétence
+      setEditingSousCompetence({
+        id: sousCompId,
+        SousCompetence_Nom_FR: "",
+        SousCompetence_Nom_EN: "",
+        competenceId,
+        quizId,
+        courseId,
+        isNew: true, // Marquer comme nouvelle sous-compétence
+      });
     } catch (err) {
-      console.error("Erreur lors de l'ajout de la sous-compétence:", err);
-      alert(`Échec de l'ajout: ${err.message}`);
+      console.error(
+        "Erreur lors de la préparation de l'ajout de la sous-compétence:",
+        err
+      );
+      setDialog({
+        show: true,
+        title: "Erreur",
+        message: `Échec de la préparation: ${err.message}`,
+        type: "error",
+        onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+        confirmText: "OK",
+      });
     }
   };
 
@@ -1054,115 +1117,148 @@ function CourseManagementPage() {
     competenceId,
     sousCompIndex
   ) => {
-    if (
-      !window.confirm(
-        "Êtes-vous sûr de vouloir supprimer cette sous-compétence ?"
-      )
-    ) {
-      return;
-    }
+    // Afficher une boîte de dialogue de confirmation
+    setDialog({
+      show: true,
+      title: "Confirmation",
+      message: "Êtes-vous sûr de vouloir supprimer cette sous-compétence ?",
+      type: "confirm",
+      onConfirm: async () => {
+        setDialog((prev) => ({ ...prev, show: false }));
 
-    try {
-      // Trouver le quiz et la sous-compétence
-      let quizIDModule = null;
-      let sousCompetence = null;
+        try {
+          // Trouver la sous-compétence
+          let sousCompetence = null;
 
-      for (const course of courses) {
-        for (const quiz of course.quizzes || []) {
-          if (quiz.IDModule === quizId) {
-            quizIDModule = quiz.IDModule;
-            const competence = quiz.competences.find(
-              (c) => c.Competence_ID === competenceId
-            );
-            if (
-              competence &&
-              competence.sousCompetences &&
-              competence.sousCompetences[sousCompIndex]
-            ) {
-              sousCompetence = competence.sousCompetences[sousCompIndex];
+          for (const course of courses) {
+            for (const quiz of course.quizzes || []) {
+              if (quiz.IDModule === quizId) {
+                const competence = quiz.competences.find(
+                  (c) => c.Competence_ID === competenceId
+                );
+                if (
+                  competence &&
+                  competence.sousCompetences &&
+                  competence.sousCompetences[sousCompIndex]
+                ) {
+                  sousCompetence = competence.sousCompetences[sousCompIndex];
+                }
+                break;
+              }
             }
-            break;
+            if (sousCompetence) break;
           }
+
+          if (!sousCompetence) {
+            throw new Error(
+              `Sous-compétence à l'index ${sousCompIndex} non trouvée`
+            );
+          }
+
+          // Vérifier que l'ID de la sous-compétence est présent
+          if (!sousCompetence.id) {
+            throw new Error("ID de la sous-compétence manquant");
+          }
+
+          // Appeler l'API pour supprimer la sous-compétence avec le bon endpoint
+          const response = await fetch(
+            `${API_BASE_URL}/sous-competence/${sousCompetence.id}`,
+            {
+              method: "DELETE",
+              headers: {
+                Accept: "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          if (!response.ok) {
+            let errorData;
+            try {
+              errorData = await response.json();
+            } catch (jsonError) {
+              throw new Error(`Échec de la suppression: ${response.status}`);
+            }
+            throw new Error(
+              errorData.message ||
+                "Échec de la suppression de la sous-compétence"
+            );
+          }
+
+          // Mettre à jour l'état local immédiatement pour une meilleure expérience utilisateur
+          setCourses(
+            courses.map((course) => ({
+              ...course,
+              quizzes:
+                course.quizzes?.map((q) =>
+                  q.IDModule === quizId
+                    ? {
+                        ...q,
+                        competences: q.competences.map((c) =>
+                          c.Competence_ID === competenceId
+                            ? {
+                                ...c,
+                                sousCompetences: c.sousCompetences.filter(
+                                  (_, index) => index !== sousCompIndex
+                                ),
+                              }
+                            : c
+                        ),
+                      }
+                    : q
+                ) || [],
+            }))
+          );
+
+          // Afficher un message de succès
+          setDialog({
+            show: true,
+            title: "Succès",
+            message: "Sous-compétence supprimée avec succès",
+            type: "success",
+            onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+            confirmText: "OK",
+          });
+        } catch (err) {
+          console.error("Error deleting sous-competence:", err);
+          setDialog({
+            show: true,
+            title: "Erreur",
+            message: `Échec de la suppression: ${err.message}`,
+            type: "error",
+            onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+            confirmText: "OK",
+          });
         }
-        if (quizIDModule && sousCompetence) break;
-      }
-
-      if (!quizIDModule) {
-        throw new Error(`Quiz avec ID ${quizId} non trouvé`);
-      }
-
-      if (!sousCompetence) {
-        throw new Error(
-          `Sous-compétence à l'index ${sousCompIndex} non trouvée`
-        );
-      }
-
-      // Encoder les noms pour l'URL
-      const sousCompetenceNomFR = encodeURIComponent(
-        sousCompetence.SousCompetence_Nom_FR
-      );
-      const sousCompetenceNomEN = encodeURIComponent(
-        sousCompetence.SousCompetence_Nom_EN
-      );
-
-      // Appeler l'API pour supprimer la sous-compétence
-      const response = await fetch(
-        `${API_BASE_URL}/quiz/sous-competence/${quizIDModule}/${competenceId}/${sousCompetenceNomFR}/${sousCompetenceNomEN}`,
-        {
-          method: "DELETE",
-          headers: {
-            Accept: "application/json",
-          },
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.message || "Failed to delete sous-competence"
-        );
-      }
-
-      // Recharger les données complètes pour s'assurer que nous avons les dernières informations
-      console.log(
-        "Sous-compétence supprimée avec succès, recharger les données"
-      );
-      const refreshedCourses = await fetchCourses();
-      setCourses(refreshedCourses);
-
-      alert("Sous-compétence supprimée avec succès");
-    } catch (err) {
-      console.error("Error deleting sous-competence:", err);
-      alert(`Échec de la suppression: ${err.message}`);
-    }
+      },
+      onCancel: () => setDialog((prev) => ({ ...prev, show: false })),
+      cancelText: "Annuler",
+      confirmText: "Supprimer",
+    });
   };
 
   const handleAddQuizAction = async (courseId, quizId) => {
     try {
-      // Trouver le quiz pour obtenir son IDModule (identifiant unique du quiz)
-      let quizIDModule = null;
-      let quizNomFR = null;
-      let quizNomEN = null;
+      // Trouver le quiz pour obtenir son ID réel
+      let quiz = null;
 
       for (const course of courses) {
-        for (const quiz of course.quizzes || []) {
-          if (quiz.IDModule === quizId) {
-            quizIDModule = quiz.IDModule; // IDModule est l'identifiant du quiz
-            quizNomFR = quiz.Nom_FR;
-            quizNomEN = quiz.Nom_EN;
+        for (const q of course.quizzes || []) {
+          if (q.IDModule === quizId) {
+            quiz = q;
             break;
           }
         }
-        if (quizIDModule) break;
+        if (quiz) break;
       }
 
-      if (!quizIDModule) {
+      if (!quiz) {
         throw new Error(`Quiz avec ID ${quizId} non trouvé`);
       }
 
       // Créer une nouvelle action avec des valeurs par défaut
       const newAction = {
-        id: 0, // ID temporaire qui sera remplacé par l'ID réel du backend
+        id: Date.now(), // ID temporaire pour l'interface
         Action_Nom_FR: "Nouvelle Action",
         Action_Nom_EN: "New Action",
         Action_Categorie_FR: "",
@@ -1174,32 +1270,31 @@ function CourseManagementPage() {
         courses.map((course) => ({
           ...course,
           quizzes:
-            course.quizzes?.map((quiz) =>
-              quiz.IDModule === quizId
+            course.quizzes?.map((q) =>
+              q.IDModule === quizId
                 ? {
-                    ...quiz,
-                    actions: [...(quiz.actions || []), newAction],
+                    ...q,
+                    actions: [...(q.actions || []), newAction],
                   }
-                : quiz
+                : q
             ) || [],
         }))
       );
 
-      // Appeler l'API pour créer l'action au niveau du quiz
-      const response = await fetch(`${API_BASE_URL}/quiz/quiz-action/create`, {
+      // Appeler l'API pour créer l'action en utilisant le bon endpoint
+      const response = await fetch(`${API_BASE_URL}/quiz/action/create`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          IDModule: quizIDModule,
-          Nom_FR: quizNomFR,
-          Nom_EN: quizNomEN,
+          IDModule: quizId, // Utiliser IDModule au lieu de quiz_id
           Action_Nom_FR: newAction.Action_Nom_FR,
           Action_Nom_EN: newAction.Action_Nom_EN,
-          Action_Categorie_FR: newAction.Action_Categorie_FR,
-          Action_Categorie_EN: newAction.Action_Categorie_EN,
+          Action_Categorie_FR: newAction.Action_Categorie_FR || "",
+          Action_Categorie_EN: newAction.Action_Categorie_EN || "",
         }),
       });
 
@@ -1216,86 +1311,136 @@ function CourseManagementPage() {
       const responseData = await response.json();
       console.log("Action créée avec succès:", responseData);
 
-      // Mettre à jour l'état local avec l'ID réel de l'action retourné par le backend
-      if (responseData.quiz_id && responseData.action) {
-        console.log("Action créée avec succès, ID:", responseData.quiz_id);
+      // Recharger les données complètes pour s'assurer que nous avons les dernières informations
+      const refreshedCourses = await fetchCourses();
+      setCourses(refreshedCourses);
 
-        // Recharger les données complètes pour s'assurer que nous avons les dernières informations
-        const refreshedCourses = await fetchCourses();
-        setCourses(refreshedCourses);
-      }
-
-      alert("Action ajoutée avec succès");
+      setDialog({
+        show: true,
+        title: "Succès",
+        message: "Action ajoutée avec succès",
+        type: "success",
+        onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+        confirmText: "OK",
+      });
     } catch (err) {
       console.error("Erreur lors de l'ajout de l'action:", err);
-      alert(`Échec de l'ajout: ${err.message}`);
+      setDialog({
+        show: true,
+        title: "Erreur",
+        message: `Échec de l'ajout: ${err.message}`,
+        type: "error",
+        onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+        confirmText: "OK",
+      });
     }
   };
 
   const handleDeleteQuizAction = async (courseId, quizId, actionIndex) => {
-    if (!window.confirm("Êtes-vous sûr de vouloir supprimer cette action ?")) {
-      return;
-    }
+    // Afficher une boîte de dialogue de confirmation
+    setDialog({
+      show: true,
+      title: "Confirmation",
+      message: "Êtes-vous sûr de vouloir supprimer cette action ?",
+      type: "confirm",
+      onConfirm: async () => {
+        setDialog((prev) => ({ ...prev, show: false }));
 
-    try {
-      // Trouver le quiz et l'action
-      let quizIDModule = null;
-      let action = null;
+        try {
+          // Trouver le quiz et l'action
+          let quiz = null;
+          let action = null;
 
-      for (const course of courses) {
-        for (const quiz of course.quizzes || []) {
-          if (
-            quiz.IDModule === quizId &&
-            quiz.actions &&
-            quiz.actions[actionIndex]
-          ) {
-            quizIDModule = quiz.IDModule;
-            action = quiz.actions[actionIndex];
-            break;
+          for (const course of courses) {
+            for (const q of course.quizzes || []) {
+              if (
+                q.IDModule === quizId &&
+                q.actions &&
+                q.actions[actionIndex]
+              ) {
+                quiz = q;
+                action = q.actions[actionIndex];
+                break;
+              }
+            }
+            if (quiz) break;
           }
+
+          if (!quiz) {
+            throw new Error(`Quiz avec ID ${quizId} non trouvé`);
+          }
+
+          if (!action) {
+            throw new Error(`Action à l'index ${actionIndex} non trouvée`);
+          }
+
+          // Utiliser l'ID de l'action pour la suppression
+          const actionId = action.id;
+
+          console.log("Suppression de l'action avec ID:", actionId);
+
+          // Appeler l'API pour supprimer l'action en utilisant le bon endpoint
+          const response = await fetch(
+            `${API_BASE_URL}/quiz/quiz-action-by-id/${actionId}`,
+            {
+              method: "DELETE",
+              headers: {
+                Accept: "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || "Failed to delete action");
+          }
+
+          // Mettre à jour l'état local immédiatement pour une meilleure expérience utilisateur
+          setCourses(
+            courses.map((course) => ({
+              ...course,
+              quizzes:
+                course.quizzes?.map((q) =>
+                  q.IDModule === quizId
+                    ? {
+                        ...q,
+                        actions: q.actions.filter((_, i) => i !== actionIndex),
+                      }
+                    : q
+                ) || [],
+            }))
+          );
+
+          // Recharger les données complètes pour s'assurer que nous avons les dernières informations
+          console.log("Action supprimée avec succès, recharger les données");
+          const refreshedCourses = await fetchCourses();
+          setCourses(refreshedCourses);
+
+          setDialog({
+            show: true,
+            title: "Succès",
+            message: "Action supprimée avec succès",
+            type: "success",
+            onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+            confirmText: "OK",
+          });
+        } catch (err) {
+          console.error("Error deleting action:", err);
+          setDialog({
+            show: true,
+            title: "Erreur",
+            message: `Échec de la suppression: ${err.message}`,
+            type: "error",
+            onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+            confirmText: "OK",
+          });
         }
-        if (quizIDModule) break;
-      }
-
-      if (!quizIDModule) {
-        throw new Error(`Quiz avec ID ${quizId} non trouvé`);
-      }
-
-      if (!action) {
-        throw new Error(`Action à l'index ${actionIndex} non trouvée`);
-      }
-
-      // Utiliser l'ID de l'action pour la suppression
-      const actionId = action.id;
-
-      console.log("Suppression de l'action avec ID:", actionId);
-
-      // Appeler l'API pour supprimer l'action
-      const response = await fetch(
-        `${API_BASE_URL}/quiz/quiz-action-by-id/${actionId}`,
-        {
-          method: "DELETE",
-          headers: {
-            Accept: "application/json",
-          },
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to delete action");
-      }
-
-      // Recharger les données complètes pour s'assurer que nous avons les dernières informations
-      console.log("Action supprimée avec succès, recharger les données");
-      const refreshedCourses = await fetchCourses();
-      setCourses(refreshedCourses);
-
-      alert("Action supprimée avec succès");
-    } catch (err) {
-      console.error("Error deleting action:", err);
-      alert(`Échec de la suppression: ${err.message}`);
-    }
+      },
+      onCancel: () => setDialog((prev) => ({ ...prev, show: false })),
+      cancelText: "Annuler",
+      confirmText: "Supprimer",
+    });
   };
 
   const handleQuizActionChange = (quiz, actionIndex, field, value) => {
@@ -1331,7 +1476,7 @@ function CourseManagementPage() {
 
       console.log("Mise à jour de l'action avec ID:", actionId);
 
-      // Appeler l'API pour mettre à jour l'action
+      // Appeler l'API pour mettre à jour l'action en utilisant le bon endpoint
       const response = await fetch(
         `${API_BASE_URL}/quiz/quiz-action-by-id/${actionId}`,
         {
@@ -1339,12 +1484,13 @@ function CourseManagementPage() {
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            Action_Nom_FR: actionData.Action_Nom_FR,
-            Action_Nom_EN: actionData.Action_Nom_EN,
-            Action_Categorie_FR: actionData.Action_Categorie_FR,
-            Action_Categorie_EN: actionData.Action_Categorie_EN,
+            nom_fr: actionData.Action_Nom_FR,
+            nom_en: actionData.Action_Nom_EN,
+            categorie_fr: actionData.Action_Categorie_FR,
+            categorie_en: actionData.Action_Categorie_EN,
           }),
         }
       );
@@ -1354,43 +1500,79 @@ function CourseManagementPage() {
         throw new Error(errorData.message || "Failed to update action");
       }
 
+      // Mettre à jour l'état local immédiatement pour une meilleure expérience utilisateur
+      setCourses(
+        courses.map((course) => ({
+          ...course,
+          quizzes:
+            course.quizzes?.map((q) =>
+              q.IDModule === quiz.IDModule
+                ? {
+                    ...q,
+                    actions: q.actions.map((action, i) =>
+                      i === actionIndex
+                        ? {
+                            ...action,
+                            Action_Nom_FR: actionData.Action_Nom_FR,
+                            Action_Nom_EN: actionData.Action_Nom_EN,
+                            Action_Categorie_FR: actionData.Action_Categorie_FR,
+                            Action_Categorie_EN: actionData.Action_Categorie_EN,
+                          }
+                        : action
+                    ),
+                  }
+                : q
+            ) || [],
+        }))
+      );
+
       // Recharger les données complètes pour s'assurer que nous avons les dernières informations
       console.log("Action mise à jour avec succès, recharger les données");
       const refreshedCourses = await fetchCourses();
       setCourses(refreshedCourses);
 
       setEditingAction(null);
-      alert("Action mise à jour avec succès");
+      setDialog({
+        show: true,
+        title: "Succès",
+        message: "Action mise à jour avec succès",
+        type: "success",
+        onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+        confirmText: "OK",
+      });
     } catch (err) {
       console.error("Error updating action:", err);
-      alert(`Échec de la mise à jour: ${err.message}`);
+      setDialog({
+        show: true,
+        title: "Erreur",
+        message: `Échec de la mise à jour: ${err.message}`,
+        type: "error",
+        onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+        confirmText: "OK",
+      });
     }
   };
 
   const handleAddAction = async (courseId, quizId, competenceId) => {
     try {
-      // Trouver le quiz pour obtenir son IDModule (identifiant unique du quiz)
-      let quizIDModule = null;
+      // Trouver le quiz et la compétence
+      let quiz = null;
       let competence = null;
-      let quizNomFR = null;
-      let quizNomEN = null;
 
       for (const course of courses) {
-        for (const quiz of course.quizzes || []) {
-          if (quiz.IDModule === quizId) {
-            quizIDModule = quiz.IDModule; // IDModule est l'identifiant du quiz
-            quizNomFR = quiz.Nom_FR;
-            quizNomEN = quiz.Nom_EN;
-            competence = quiz.competences.find(
+        for (const q of course.quizzes || []) {
+          if (q.IDModule === quizId) {
+            quiz = q;
+            competence = q.competences.find(
               (c) => c.Competence_ID === competenceId
             );
             break;
           }
         }
-        if (quizIDModule) break;
+        if (quiz) break;
       }
 
-      if (!quizIDModule) {
+      if (!quiz) {
         throw new Error(`Quiz avec ID ${quizId} non trouvé`);
       }
 
@@ -1400,7 +1582,7 @@ function CourseManagementPage() {
 
       // Créer une nouvelle action avec des valeurs par défaut
       const newAction = {
-        id: Date.now(),
+        id: Date.now(), // ID temporaire pour l'interface
         Action_Nom_FR: "Nouvelle Action",
         Action_Nom_EN: "New Action",
         Action_Categorie_FR: "",
@@ -1412,11 +1594,11 @@ function CourseManagementPage() {
         courses.map((course) => ({
           ...course,
           quizzes:
-            course.quizzes?.map((quiz) =>
-              quiz.IDModule === quizId
+            course.quizzes?.map((q) =>
+              q.IDModule === quizId
                 ? {
-                    ...quiz,
-                    competences: quiz.competences.map((c) =>
+                    ...q,
+                    competences: q.competences.map((c) =>
                       c.Competence_ID === competenceId
                         ? {
                             ...c,
@@ -1425,35 +1607,25 @@ function CourseManagementPage() {
                         : c
                     ),
                   }
-                : quiz
+                : q
             ) || [],
         }))
       );
 
-      // Créer l'action dans la base de données
+      // Créer l'action dans la base de données en utilisant le bon endpoint
       const response = await fetch(`${API_BASE_URL}/quiz/action/create`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          // IDModule est l'identifiant unique du quiz
-          IDModule: quizIDModule,
-          // Informations sur le quiz
-          Nom_FR: quizNomFR,
-          Nom_EN: quizNomEN,
-          // Informations sur la compétence
-          Competence_ID: competenceId,
-          Competence_Nom_FR: competence.Competence_Nom_FR,
-          Competence_Nom_EN: competence.Competence_Nom_EN,
-          Comp_Categorie_FR: competence.Comp_Categorie_FR || "",
-          Comp_Categorie_EN: competence.Comp_Categorie_EN || "",
-          // Informations sur l'action
+          IDModule: quizId, // Utiliser IDModule au lieu de quiz_id
           Action_Nom_FR: newAction.Action_Nom_FR,
           Action_Nom_EN: newAction.Action_Nom_EN,
-          Action_Categorie_FR: newAction.Action_Categorie_FR,
-          Action_Categorie_EN: newAction.Action_Categorie_EN,
+          Action_Categorie_FR: newAction.Action_Categorie_FR || "",
+          Action_Categorie_EN: newAction.Action_Categorie_EN || "",
         }),
       });
 
@@ -1467,10 +1639,28 @@ function CourseManagementPage() {
       const responseData = await response.json();
       console.log("Action créée avec succès:", responseData);
 
-      alert("Action ajoutée avec succès");
+      // Recharger les données complètes pour s'assurer que nous avons les dernières informations
+      const refreshedCourses = await fetchCourses();
+      setCourses(refreshedCourses);
+
+      setDialog({
+        show: true,
+        title: "Succès",
+        message: "Action ajoutée avec succès",
+        type: "success",
+        onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+        confirmText: "OK",
+      });
     } catch (err) {
       console.error("Erreur lors de l'ajout de l'action:", err);
-      alert(`Échec de l'ajout: ${err.message}`);
+      setDialog({
+        show: true,
+        title: "Erreur",
+        message: `Échec de l'ajout: ${err.message}`,
+        type: "error",
+        onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+        confirmText: "OK",
+      });
     }
   };
 
@@ -1480,93 +1670,124 @@ function CourseManagementPage() {
     competenceId,
     actionIndex
   ) => {
-    if (!window.confirm("Êtes-vous sûr de vouloir supprimer cette action ?")) {
-      return;
-    }
+    // Afficher une boîte de dialogue de confirmation
+    setDialog({
+      show: true,
+      title: "Confirmation",
+      message: "Êtes-vous sûr de vouloir supprimer cette action ?",
+      type: "confirm",
+      onConfirm: async () => {
+        setDialog((prev) => ({ ...prev, show: false }));
 
-    try {
-      // Trouver le quiz et l'action
-      let quizIDModule = null;
-      let action = null;
+        try {
+          // Trouver le quiz et l'action
+          let quiz = null;
+          let action = null;
+          let competence = null;
 
-      for (const course of courses) {
-        for (const quiz of course.quizzes || []) {
-          if (quiz.IDModule === quizId) {
-            quizIDModule = quiz.IDModule;
-            const competence = quiz.competences.find(
-              (c) => c.Competence_ID === competenceId
-            );
-            if (
-              competence &&
-              competence.actions &&
-              competence.actions[actionIndex]
-            ) {
-              action = competence.actions[actionIndex];
+          for (const course of courses) {
+            for (const q of course.quizzes || []) {
+              if (q.IDModule === quizId) {
+                quiz = q;
+                competence = q.competences.find(
+                  (c) => c.Competence_ID === competenceId
+                );
+                if (
+                  competence &&
+                  competence.actions &&
+                  competence.actions[actionIndex]
+                ) {
+                  action = competence.actions[actionIndex];
+                }
+                break;
+              }
             }
-            break;
+            if (quiz && action) break;
           }
+
+          if (!quiz) {
+            throw new Error(`Quiz avec ID ${quizId} non trouvé`);
+          }
+
+          if (!action) {
+            throw new Error(`Action à l'index ${actionIndex} non trouvée`);
+          }
+
+          // Utiliser l'ID de l'action pour la suppression
+          const actionId = action.id;
+
+          console.log("Suppression de l'action avec ID:", actionId);
+
+          // Appeler l'API pour supprimer l'action en utilisant le bon endpoint
+          const response = await fetch(
+            `${API_BASE_URL}/quiz/quiz-action-by-id/${actionId}`,
+            {
+              method: "DELETE",
+              headers: {
+                Accept: "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || "Failed to delete action");
+          }
+
+          // Mettre à jour l'état local
+          setCourses(
+            courses.map((course) => ({
+              ...course,
+              quizzes:
+                course.quizzes?.map((q) =>
+                  q.IDModule === quizId
+                    ? {
+                        ...q,
+                        competences: q.competences.map((c) =>
+                          c.Competence_ID === competenceId
+                            ? {
+                                ...c,
+                                actions: c.actions.filter(
+                                  (_, i) => i !== actionIndex
+                                ),
+                              }
+                            : c
+                        ),
+                      }
+                    : q
+                ) || [],
+            }))
+          );
+
+          // Recharger les données complètes pour s'assurer que nous avons les dernières informations
+          const refreshedCourses = await fetchCourses();
+          setCourses(refreshedCourses);
+
+          setDialog({
+            show: true,
+            title: "Succès",
+            message: "Action supprimée avec succès",
+            type: "success",
+            onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+            confirmText: "OK",
+          });
+        } catch (err) {
+          console.error("Error deleting action:", err);
+          setDialog({
+            show: true,
+            title: "Erreur",
+            message: `Échec de la suppression: ${err.message}`,
+            type: "error",
+            onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+            confirmText: "OK",
+          });
         }
-        if (quizIDModule && action) break;
-      }
-
-      if (!quizIDModule) {
-        throw new Error(`Quiz avec ID ${quizId} non trouvé`);
-      }
-
-      if (!action) {
-        throw new Error(`Action à l'index ${actionIndex} non trouvée`);
-      }
-
-      // Encoder les noms pour l'URL
-      const actionNomFR = encodeURIComponent(action.Action_Nom_FR);
-      const actionNomEN = encodeURIComponent(action.Action_Nom_EN);
-
-      // Appeler l'API pour supprimer l'action
-      const response = await fetch(
-        `${API_BASE_URL}/quiz/action/${quizIDModule}/${competenceId}/${actionNomFR}/${actionNomEN}`,
-        {
-          method: "DELETE",
-          headers: {
-            Accept: "application/json",
-          },
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to delete action");
-      }
-
-      // Mettre à jour l'état local
-      setCourses(
-        courses.map((course) => ({
-          ...course,
-          quizzes:
-            course.quizzes?.map((quiz) =>
-              quiz.IDModule === quizId
-                ? {
-                    ...quiz,
-                    competences: quiz.competences.map((c) =>
-                      c.Competence_ID === competenceId
-                        ? {
-                            ...c,
-                            actions: c.actions.filter(
-                              (_, i) => i !== actionIndex
-                            ),
-                          }
-                        : c
-                    ),
-                  }
-                : quiz
-            ) || [],
-        }))
-      );
-
-      alert("Action supprimée avec succès");
-    } catch (err) {
-      console.error("Error deleting action:", err);
-      alert(`Échec de la suppression: ${err.message}`);
-    }
+      },
+      onCancel: () => setDialog((prev) => ({ ...prev, show: false })),
+      cancelText: "Annuler",
+      confirmText: "Supprimer",
+    });
   };
 
   const handleCompetenceChange = (quiz, compIndex, field, value) => {
@@ -1626,6 +1847,7 @@ function CourseManagementPage() {
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             Competence_Nom_FR: competenceData.Competence_Nom_FR,
@@ -1676,123 +1898,196 @@ function CourseManagementPage() {
       setCourses(newCourses);
 
       setEditingCompetence(null);
-      alert("Compétence mise à jour avec succès");
+      setDialog({
+        show: true,
+        title: "Succès",
+        message: "Compétence mise à jour avec succès",
+        type: "success",
+        onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+        confirmText: "OK",
+      });
     } catch (err) {
       console.error("Error updating competence:", err);
-      alert(`Échec de la mise à jour: ${err.message}`);
+      setDialog({
+        show: true,
+        title: "Erreur",
+        message: `Échec de la mise à jour: ${err.message}`,
+        type: "error",
+        onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+        confirmText: "OK",
+      });
     }
   };
 
   const handleUpdateSousCompetenceSubmit = async (sousCompetenceData) => {
     try {
-      // Trouver la sous-compétence originale
-      let quizIDModule = null;
-      let competenceId = null;
-      let originalSousComp = null;
-
-      // Parcourir les cours pour trouver la sous-compétence
-      for (const course of courses) {
-        for (const quiz of course.quizzes || []) {
-          for (const competence of quiz.competences) {
-            for (const sousComp of competence.sousCompetences) {
-              if (sousComp.id === sousCompetenceData.id) {
-                quizIDModule = quiz.IDModule;
-                competenceId = competence.Competence_ID;
-                originalSousComp = sousComp;
-                break;
-              }
-            }
-            if (originalSousComp) break;
-          }
-          if (originalSousComp) break;
-        }
-        if (originalSousComp) break;
+      // Vérifier que l'ID de la sous-compétence est présent
+      if (!sousCompetenceData.id) {
+        throw new Error("ID de la sous-compétence manquant");
       }
 
-      if (!originalSousComp) {
-        throw new Error("Sous-compétence non trouvée");
-      }
-
-      // Encoder les noms originaux pour l'URL
-      const originalNomFR = encodeURIComponent(
-        originalSousComp.SousCompetence_Nom_FR
-      );
-      const originalNomEN = encodeURIComponent(
-        originalSousComp.SousCompetence_Nom_EN
-      );
-
-      // Données à envoyer
+      // Préparer les données pour l'API - adapter au format attendu par l'API
       const requestData = {
-        SousCompetence_Nom_FR: sousCompetenceData.SousCompetence_Nom_FR,
-        SousCompetence_Nom_EN: sousCompetenceData.SousCompetence_Nom_EN,
+        nom_fr: sousCompetenceData.SousCompetence_Nom_FR,
+        nom_en: sousCompetenceData.SousCompetence_Nom_EN,
       };
 
-      // Appel API
+      // Appel API avec le bon endpoint
       const response = await fetch(
-        `${API_BASE_URL}/quiz/sous-competence/${quizIDModule}/${competenceId}/${originalNomFR}/${originalNomEN}`,
+        `${API_BASE_URL}/sous-competence/${sousCompetenceData.id}`,
         {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(requestData),
         }
       );
 
       if (!response.ok) {
-        const errorData = await response.json();
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (jsonError) {
+          throw new Error(`Échec de la mise à jour: ${response.status}`);
+        }
         throw new Error(errorData.message || "Échec de la mise à jour");
       }
 
+      // Récupérer les données de la réponse
       const responseData = await response.json();
-
-      if (responseData.updated_rows === 0) {
-        throw new Error("Aucune sous-compétence n'a été mise à jour");
-      }
 
       // Mettre à jour manuellement la sous-compétence dans l'état local
       const newCourses = [...courses];
 
       // Parcourir les cours pour trouver et mettre à jour la sous-compétence
-      for (let i = 0; i < newCourses.length; i++) {
-        const course = newCourses[i];
+      let updated = false;
+      for (const course of newCourses) {
         if (!course.quizzes) continue;
 
-        for (let j = 0; j < course.quizzes.length; j++) {
-          const quiz = course.quizzes[j];
-          if (quiz.IDModule !== quizIDModule) continue;
-
-          for (let k = 0; k < quiz.competences.length; k++) {
-            const comp = quiz.competences[k];
-            if (comp.Competence_ID !== competenceId) continue;
-
-            for (let l = 0; l < comp.sousCompetences.length; l++) {
-              const sc = comp.sousCompetences[l];
-              if (sc.id !== sousCompetenceData.id) continue;
-
-              // Mettre à jour la sous-compétence trouvée
-              comp.sousCompetences[l] = {
-                ...sc,
-                SousCompetence_Nom_FR: sousCompetenceData.SousCompetence_Nom_FR,
-                SousCompetence_Nom_EN: sousCompetenceData.SousCompetence_Nom_EN,
-              };
-
-              // Sortir des boucles une fois la mise à jour effectuée
-              break;
+        for (const quiz of course.quizzes) {
+          for (const competence of quiz.competences) {
+            for (let i = 0; i < competence.sousCompetences.length; i++) {
+              const sc = competence.sousCompetences[i];
+              if (sc.id === sousCompetenceData.id) {
+                // Mettre à jour la sous-compétence trouvée
+                competence.sousCompetences[i] = {
+                  ...sc,
+                  SousCompetence_Nom_FR:
+                    sousCompetenceData.SousCompetence_Nom_FR,
+                  SousCompetence_Nom_EN:
+                    sousCompetenceData.SousCompetence_Nom_EN,
+                };
+                updated = true;
+                break;
+              }
             }
+            if (updated) break;
           }
+          if (updated) break;
         }
+        if (updated) break;
       }
 
       // Mettre à jour l'état avec les nouvelles données
       setCourses(newCourses);
 
+      // Fermer le formulaire
       setEditingSousCompetence(null);
-      alert("Sous-compétence mise à jour avec succès");
+
+      // Afficher un message de succès
+      setDialog({
+        show: true,
+        title: "Succès",
+        message: "Sous-compétence mise à jour avec succès",
+        type: "success",
+        onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+        confirmText: "OK",
+      });
     } catch (err) {
       console.error("Erreur lors de la mise à jour:", err);
-      alert(`Échec de la mise à jour: ${err.message}`);
+      setDialog({
+        show: true,
+        title: "Erreur",
+        message: `Échec de la mise à jour: ${err.message}`,
+        type: "error",
+        onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+        confirmText: "OK",
+      });
+    }
+  };
+
+  const handleCreateSousCompetenceSubmit = async (sousCompetenceData) => {
+    try {
+      // Vérifier que les données nécessaires sont présentes
+      if (!sousCompetenceData.quizId || !sousCompetenceData.competenceId) {
+        throw new Error("Données manquantes pour créer la sous-compétence");
+      }
+
+      // Préparer les données pour l'API - adapter au format attendu par l'API
+      const requestData = {
+        competence_id: sousCompetenceData.competenceId,
+        nom_fr: sousCompetenceData.SousCompetence_Nom_FR,
+        nom_en: sousCompetenceData.SousCompetence_Nom_EN,
+      };
+
+      // Appel API pour créer la sous-compétence avec le bon endpoint
+      const response = await fetch(`${API_BASE_URL}/sous-competence`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(requestData),
+      });
+
+      if (!response.ok) {
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (jsonError) {
+          const text = await response.text();
+          throw new Error(
+            `Échec de la création de la sous-compétence: ${response.status} - ${text}`
+          );
+        }
+        throw new Error(
+          errorData.message || "Échec de la création de la sous-compétence"
+        );
+      }
+
+      const responseData = await response.json();
+      console.log("Sous-compétence créée avec succès:", responseData);
+
+      // Recharger les données complètes pour s'assurer que nous avons les dernières informations
+      const refreshedCourses = await fetchCourses();
+      setCourses(refreshedCourses);
+
+      // Fermer le formulaire
+      setEditingSousCompetence(null);
+
+      // Afficher un message de succès
+      setDialog({
+        show: true,
+        title: "Succès",
+        message: "Sous-compétence ajoutée avec succès",
+        type: "success",
+        onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+        confirmText: "OK",
+      });
+    } catch (err) {
+      console.error("Erreur lors de la création de la sous-compétence:", err);
+      setDialog({
+        show: true,
+        title: "Erreur",
+        message: `Échec de la création: ${err.message}`,
+        type: "error",
+        onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+        confirmText: "OK",
+      });
     }
   };
 
@@ -1845,6 +2140,7 @@ function CourseManagementPage() {
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             Action_Nom_FR: actionData.Action_Nom_FR,
@@ -1896,10 +2192,24 @@ function CourseManagementPage() {
       );
 
       setEditingAction(null);
-      alert("Action mise à jour avec succès");
+      setDialog({
+        show: true,
+        title: "Succès",
+        message: "Action mise à jour avec succès",
+        type: "success",
+        onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+        confirmText: "OK",
+      });
     } catch (err) {
       console.error("Error updating action:", err);
-      alert(`Échec de la mise à jour: ${err.message}`);
+      setDialog({
+        show: true,
+        title: "Erreur",
+        message: `Échec de la mise à jour: ${err.message}`,
+        type: "error",
+        onConfirm: () => setDialog((prev) => ({ ...prev, show: false })),
+        confirmText: "OK",
+      });
     }
   };
 
@@ -3038,8 +3348,8 @@ function CourseManagementPage() {
               </h2>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Nom (FR)
+                  <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
+                    Nom en français *
                   </label>
                   <input
                     type="text"
@@ -3050,12 +3360,13 @@ function CourseManagementPage() {
                         Competence_Nom_FR: e.target.value,
                       })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    placeholder="Nom de la compétence en français"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Nom (EN)
+                  <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
+                    Nom en anglais *
                   </label>
                   <input
                     type="text"
@@ -3066,7 +3377,42 @@ function CourseManagementPage() {
                         Competence_Nom_EN: e.target.value,
                       })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    placeholder="Nom de la compétence en anglais"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
+                    Catégorie en français
+                  </label>
+                  <input
+                    type="text"
+                    value={editingCompetence.Comp_Categorie_FR}
+                    onChange={(e) =>
+                      setEditingCompetence({
+                        ...editingCompetence,
+                        Comp_Categorie_FR: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    placeholder="Catégorie en français (optionnel)"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
+                    Catégorie en anglais
+                  </label>
+                  <input
+                    type="text"
+                    value={editingCompetence.Comp_Categorie_EN}
+                    onChange={(e) =>
+                      setEditingCompetence({
+                        ...editingCompetence,
+                        Comp_Categorie_EN: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    placeholder="Catégorie en anglais (optionnel)"
                   />
                 </div>
               </div>
@@ -3090,12 +3436,14 @@ function CourseManagementPage() {
           </div>
         )}
 
-        {/* Modal d'édition de sous-compétence */}
+        {/* Modal d'édition ou création de sous-compétence */}
         {editingSousCompetence && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-md">
               <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-white">
-                Modifier la sous-compétence
+                {editingSousCompetence.isNew
+                  ? "Ajouter une sous-compétence"
+                  : "Modifier la sous-compétence"}
               </h2>
               <div className="space-y-4">
                 <div>
@@ -3112,6 +3460,7 @@ function CourseManagementPage() {
                       })
                     }
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                    placeholder="Entrez le nom en français"
                   />
                 </div>
                 <div>
@@ -3128,6 +3477,7 @@ function CourseManagementPage() {
                       })
                     }
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                    placeholder="Entrez le nom en anglais"
                   />
                 </div>
               </div>
@@ -3139,9 +3489,32 @@ function CourseManagementPage() {
                   Annuler
                 </button>
                 <button
-                  onClick={() =>
-                    handleUpdateSousCompetenceSubmit(editingSousCompetence)
-                  }
+                  onClick={() => {
+                    // Vérifier si les champs obligatoires sont remplis
+                    if (
+                      !editingSousCompetence.SousCompetence_Nom_FR &&
+                      !editingSousCompetence.SousCompetence_Nom_EN
+                    ) {
+                      setDialog({
+                        show: true,
+                        title: "Attention",
+                        message:
+                          "Veuillez remplir au moins un des champs (FR ou EN)",
+                        type: "error",
+                        onConfirm: () =>
+                          setDialog((prev) => ({ ...prev, show: false })),
+                        confirmText: "OK",
+                      });
+                      return;
+                    }
+
+                    // Utiliser le flag isNew pour déterminer l'action
+                    if (editingSousCompetence.isNew) {
+                      handleCreateSousCompetenceSubmit(editingSousCompetence);
+                    } else {
+                      handleUpdateSousCompetenceSubmit(editingSousCompetence);
+                    }
+                  }}
                   className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                 >
                   Enregistrer
@@ -3240,6 +3613,19 @@ function CourseManagementPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Boîte de dialogue pour les notifications et confirmations */}
+        {dialog.show && (
+          <DialogModal
+            title={dialog.title}
+            message={dialog.message}
+            type={dialog.type}
+            onClose={() => setDialog((prev) => ({ ...prev, show: false }))}
+            onConfirm={dialog.onConfirm}
+            confirmText={dialog.confirmText}
+            cancelText={dialog.cancelText}
+          />
         )}
       </div>
     </div>
