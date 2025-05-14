@@ -261,7 +261,9 @@ const ProfilePage = () => {
 
     setFormSubmitting(true);
     try {
+      console.log("Tentative de suppression du compte utilisateur:", user.id);
       const result = await deleteAccount(user.id);
+      console.log("Résultat de la suppression:", result);
 
       if (result.success) {
         // La redirection sera gérée automatiquement par le contexte d'authentification
@@ -273,14 +275,31 @@ const ProfilePage = () => {
           message: "Compte supprimé avec succès",
         });
       } else {
-        toast.error(result.error || "Erreur lors de la suppression du compte");
+        // Message d'erreur plus détaillé
+        let errorMessage =
+          result.error || "Erreur lors de la suppression du compte";
+
+        // Si l'erreur contient des informations sur des contraintes de clé étrangère
+        if (
+          errorMessage.includes("REFERENCES") ||
+          errorMessage.includes("constraint")
+        ) {
+          errorMessage =
+            "Impossible de supprimer le compte car il est lié à d'autres données. Veuillez contacter un administrateur.";
+        } else if (errorMessage.includes("Session expirée")) {
+          errorMessage =
+            "Votre session a expiré. Veuillez vous reconnecter pour effectuer cette action.";
+        }
+
+        toast.error(errorMessage);
         setNotification({
           show: true,
           type: "error",
-          message: result.error || "Erreur lors de la suppression du compte",
+          message: errorMessage,
         });
       }
     } catch (error) {
+      console.error("Exception lors de la suppression du compte:", error);
       toast.error("Erreur de connexion au serveur");
       setNotification({
         show: true,

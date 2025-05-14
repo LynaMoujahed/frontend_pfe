@@ -1,100 +1,72 @@
-import { NavLink } from 'react-router-dom';
-import { 
-  Home, 
-  BookOpen, 
-  BarChart2,
-  Mail,
-  AlertCircle
-} from 'lucide-react';
-import pharmaLearnLogo from "../../../assets/PharmaLearn.png";
+import { forwardRef } from "react";
+import { NavLink } from "react-router-dom";
 
-const Sidebar = ({ collapsed }) => {
+import { navbarLinks } from "..";
+import pharmaLearnLogo from "../../../assets/PharmaLearn.png";
+import { cn } from "../../../utils/cn";
+
+import PropTypes from "prop-types";
+
+const Sidebar = forwardRef(({ collapsed }, ref) => {
   return (
-    <aside className={`fixed top-0 left-0 z-20 h-screen bg-white shadow-md transition-all duration-300 dark:bg-slate-800 ${collapsed ? "w-16" : "w-64"}`}>
-      <div className={`flex h-[60px] items-center border-b border-gray-200 dark:border-slate-700 ${collapsed ? "justify-center" : "px-4"}`}>
-        <div className="flex items-center gap-2">
-          <img 
-            src={pharmaLearnLogo} 
-            alt="PharmaLearn Logo" 
-            className="h-8 w-auto"
-          />
-          {!collapsed && <h2 className="text-xl font-semibold text-gray-800 dark:text-white">PharmaLearn</h2>}
+    <aside
+      ref={ref}
+      className={cn(
+        "fixed z-[100] flex h-screen w-[240px] flex-col border-r border-slate-300 bg-white [transition:_width_300ms_cubic-bezier(0.4,_0,_0.2,_1),_left_300ms_cubic-bezier(0.4,_0,_0.2,_1),_background-color_150ms_cubic-bezier(0.4,_0,_0.2,_1),_border_150ms_cubic-bezier(0.4,_0,_0.2,_1)] dark:border-slate-700 dark:bg-slate-900",
+        collapsed ? "md:w-[70px] md:items-center" : "md:w-[240px]",
+        collapsed ? "max-md:-left-full" : "max-md:left-0"
+      )}
+    >
+      <div className="flex-shrink-0 p-3">
+        <div className="flex items-center gap-x-3">
+          <img src={pharmaLearnLogo} alt="PharmaLearn" className="h-8 w-auto" />
+          {!collapsed && (
+            <p className="text-lg font-medium text-slate-900 transition-colors dark:text-slate-50">
+              PharmaLearn
+            </p>
+          )}
         </div>
       </div>
-      
-      <nav className="mt-4 space-y-1 px-2">
-        <NavLink
-          to="/apprenant"
-          className={({ isActive }) => 
-            `flex items-center p-3 mx-2 rounded-lg transition-colors ${
-              isActive 
-                ? "bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-300" 
-                : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-slate-700"
-            } ${collapsed ? "justify-center" : "gap-3"}`
-          }
-        >
-          <Home size={20} />
-          {!collapsed && <span>Dashboard</span>}
-        </NavLink>
-
-        <NavLink
-          to="/apprenant/cours"
-          className={({ isActive }) => 
-            `flex items-center p-3 mx-2 rounded-lg transition-colors ${
-              isActive 
-                ? "bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-300" 
-                : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-slate-700"
-            } ${collapsed ? "justify-center" : "gap-3"}`
-          }
-        >
-          <BookOpen size={20} />
-          {!collapsed && <span>Mes Cours</span>}
-        </NavLink>
-
-        <NavLink
-          to="/apprenant/progression"
-          className={({ isActive }) => 
-            `flex items-center p-3 mx-2 rounded-lg transition-colors ${
-              isActive 
-                ? "bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-300" 
-                : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-slate-700"
-            } ${collapsed ? "justify-center" : "gap-3"}`
-          }
-        >
-          <BarChart2 size={20} />
-          {!collapsed && <span>Progression</span>}
-        </NavLink>
-
-        <NavLink
-          to="/apprenant/messagerie"
-          className={({ isActive }) => 
-            `flex items-center p-3 mx-2 rounded-lg transition-colors ${
-              isActive 
-                ? "bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-300" 
-                : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-slate-700"
-            } ${collapsed ? "justify-center" : "gap-3"}`
-          }
-        >
-          <Mail size={20} />
-          {!collapsed && <span>Messagerie</span>}
-        </NavLink>
-
-        <NavLink
-          to="/apprenant/reclamation"
-          className={({ isActive }) => 
-            `flex items-center p-3 mx-2 rounded-lg transition-colors ${
-              isActive 
-                ? "bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-300" 
-                : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-slate-700"
-            } ${collapsed ? "justify-center" : "gap-3"}`
-          }
-        >
-          <AlertCircle size={20} />
-          {!collapsed && <span>Réclamation</span>}
-        </NavLink>
+      <nav className="custom-scrollbar flex-1 overflow-y-auto p-3">
+        <div className="flex flex-col gap-y-6">
+          {navbarLinks.map((navbarLink) => (
+            <nav
+              key={navbarLink.title}
+              className={cn("sidebar-group", collapsed && "md:items-center")}
+            >
+              <p
+                className={cn(
+                  "sidebar-group-title",
+                  collapsed && "md:w-[45px]"
+                )}
+              >
+                {navbarLink.title}
+              </p>
+              {navbarLink.links.map((link) => (
+                <NavLink
+                  key={link.label}
+                  to={`/apprenant/${link.path}`}
+                  className={cn("sidebar-item", collapsed && "md:w-[45px]")}
+                  end={link.path === ""}
+                >
+                  <link.icon size={22} className="flex-shrink-0" />
+                  {!collapsed && (
+                    <p className="whitespace-nowrap">{link.label}</p>
+                  )}
+                </NavLink>
+              ))}
+            </nav>
+          ))}
+        </div>
       </nav>
     </aside>
   );
+});
+
+Sidebar.displayName = "Sidebar";
+
+Sidebar.propTypes = {
+  collapsed: PropTypes.bool,
 };
 
 export default Sidebar;

@@ -14,9 +14,11 @@ import {
 } from "react-icons/fi";
 import { useAuth } from "../../../contexts/auth-context";
 import DialogModal from "../../Common/DialogModal";
+import { API_URL } from "../../../config";
 
 function CourseManagementPage() {
-  const API_BASE_URL = "https://127.0.0.1:8000/api";
+  // Utiliser l'URL de l'API depuis le fichier de configuration
+  const API_BASE_URL = API_URL;
   const { token } = useAuth();
   const [showAddCourseForm, setShowAddCourseForm] = useState(false);
   const [courses, setCourses] = useState([]);

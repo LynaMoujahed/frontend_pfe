@@ -12,58 +12,105 @@ import RegistrationRequestsPage from "./components/Administrateur/gestion/reques
 import ProfilePage from "./components/Administrateur/settings/profile";
 import CalendarPage from "./components/Administrateur/evenement/calendrier";
 import ReclamationSystem from "./components/Administrateur/settings/reclamation";
+import QuizCreationPage from "./components/Administrateur/quiz/quiz";
+import CourseManagementPage from "./components/Administrateur/cours/cours";
+import ApprenantsCoursesPage from "./components/Administrateur/apprenants/apprenants";
 import ApprenantPage from "./Components/Apprenant/ApprenantPage.jsx";
+import FormateurPage from "./Components/Formateur/FormateurPage.jsx";
+import ProtectedRoute from "./Components/Auth/ProtectedRoute";
+import Login from "./Components/Auth/Login";
+import Register from "./Components/Auth/Register";
+import Unauthorized from "./Components/Auth/Unauthorized";
 
 function App() {
-    const router = createBrowserRouter([
+  const router = createBrowserRouter([
+    {
+      path: "/",
+      element: <Home />,
+    },
+    {
+      path: "/login",
+      element: <Login />,
+    },
+    {
+      path: "/register",
+      element: <Register />,
+    },
+    {
+      path: "/unauthorized",
+      element: <Unauthorized />,
+    },
+    {
+      path: "/admin",
+      element: (
+        <ProtectedRoute requiredRole="ROLE_ADMINISTRATEUR">
+          <Layout />
+        </ProtectedRoute>
+      ),
+      children: [
         {
-            path: "/",
-            element: <Home />,
+          index: true, // Ceci rendra DashboardPage la vue par défaut pour "/admin"
+          element: <DashboardPage />,
         },
         {
-            path: "/admin",
-            element: <Layout />,
-            children: [
-                {
-                    index: true, // Ceci rendra DashboardPage la vue par défaut pour "/admin"
-                    element: <DashboardPage />,
-                },
-                {
-                    path: "dashboard",
-                    element: <DashboardPage />,
-                },
-                {
-                    children: [
-                        {
-                            path: "users",
-                            element: <UsersManagementPage />,
-                        },
-                        {
-                            path: "requests",
-                            element: <RegistrationRequestsPage />,
-                        },
-                    ],
-                },
-                {
-                    path: "Calendrier",
-                    element: <CalendarPage />,
-                },
-                {
-                    path: "settings",
-                    element: <ProfilePage />,
-                },
-                {
-                    path: "reclamation",
-                    element: <ReclamationSystem />,
-                },
-            ],
+          path: "dashboard",
+          element: <DashboardPage />,
         },
         {
-            path: "/Apprenant",
-            element: < ApprenantPage />,
-
+          children: [
+            {
+              path: "users",
+              element: <UsersManagementPage />,
+            },
+            {
+              path: "requests",
+              element: <RegistrationRequestsPage />,
+            },
+          ],
         },
-    ]);
+        {
+          path: "Calendrier",
+          element: <CalendarPage />,
+        },
+        {
+          path: "quiz",
+          element: <QuizCreationPage />,
+        },
+        {
+          path: "cours",
+          element: <CourseManagementPage />,
+        },
+        {
+          path: "settings",
+          element: <ProfilePage />,
+        },
+        {
+          path: "reclamation",
+          element: <ReclamationSystem />,
+        },
+        {
+          path: "apprenants",
+          element: <ApprenantsCoursesPage />,
+        },
+      ],
+    },
+    {
+      path: "/apprenant/*",
+      element: (
+        <ProtectedRoute requiredRole="ROLE_APPRENANT">
+          <ApprenantPage />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: "/formateur/*",
+      element: (
+        <ProtectedRoute requiredRole="ROLE_FORMATEUR">
+          <FormateurPage />
+        </ProtectedRoute>
+      ),
+    },
+  ]);
 
   return (
     <ThemeProvider storageKey="theme">

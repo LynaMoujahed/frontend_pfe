@@ -60,6 +60,11 @@ export const navbarLinks = [
         path: "cours",
       },
       {
+        label: "Liste des apprenants",
+        icon: Users,
+        path: "apprenants",
+      },
+      {
         label: "Calendrier",
         icon: CalendarCheck,
         path: "calendrier",

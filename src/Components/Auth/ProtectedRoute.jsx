@@ -7,14 +7,8 @@ const ProtectedRoute = ({ children, requiredRole = null }) => {
   const location = useLocation();
   const [authChecked, setAuthChecked] = useState(false);
 
-  // Ajouter des logs pour déboguer
+  // Vérifier l'authentification
   useEffect(() => {
-    console.log("ProtectedRoute - user:", user);
-    console.log("ProtectedRoute - isAuthenticated:", isAuthenticated);
-    console.log("ProtectedRoute - requiredRole:", requiredRole);
-    console.log("ProtectedRoute - token exists:", !!token);
-    console.log("ProtectedRoute - loading:", loading);
-
     // Marquer l'authentification comme vérifiée une fois que le chargement est terminé
     if (!loading) {
       setAuthChecked(true);
@@ -35,27 +29,47 @@ const ProtectedRoute = ({ children, requiredRole = null }) => {
 
   // Rediriger vers la page de connexion si l'utilisateur n'est pas authentifié
   if (!isAuthenticated || !user) {
-    console.log(
-      "Utilisateur non authentifié - Redirection vers la page de connexion"
-    );
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   // Vérifier si l'utilisateur est approuvé
   // Cette vérification doit être faite avant la vérification du rôle
   if (user.isApproved === false) {
-    console.log(
-      "Utilisateur non approuvé - Redirection vers la page d'accès non autorisé"
-    );
     return <Navigate to="/unauthorized" replace />;
   }
 
   // Vérifier le rôle si nécessaire
-  if (requiredRole && (!user.roles || !user.roles.includes(requiredRole))) {
-    console.log(
-      `Utilisateur sans le rôle requis (${requiredRole}) - Redirection vers la page d'accès non autorisé`
-    );
-    return <Navigate to="/unauthorized" replace />;
+  if (requiredRole) {
+    // Vérifier à la fois user.role (chaîne) et user.roles (tableau)
+    const hasRole =
+      (user.role &&
+        ((requiredRole === "ROLE_APPRENANT" && user.role === "apprenant") ||
+          (requiredRole === "ROLE_FORMATEUR" && user.role === "formateur") ||
+          (requiredRole === "ROLE_ADMINISTRATEUR" &&
+            user.role === "administrateur"))) ||
+      (user.roles && user.roles.includes(requiredRole));
+
+    if (!hasRole) {
+      // Rediriger vers l'interface appropriée en fonction du rôle de l'utilisateur
+      if (
+        user.role === "apprenant" ||
+        (user.roles && user.roles.includes("ROLE_APPRENANT"))
+      ) {
+        return <Navigate to="/apprenant" replace />;
+      } else if (
+        user.role === "formateur" ||
+        (user.roles && user.roles.includes("ROLE_FORMATEUR"))
+      ) {
+        return <Navigate to="/formateur" replace />;
+      } else if (
+        user.role === "administrateur" ||
+        (user.roles && user.roles.includes("ROLE_ADMINISTRATEUR"))
+      ) {
+        return <Navigate to="/admin" replace />;
+      } else {
+        return <Navigate to="/unauthorized" replace />;
+      }
+    }
   }
 
   // Rendre le composant enfant si l'utilisateur est authentifié, approuvé et a le rôle requis

@@ -11,10 +11,20 @@ import {
   X,
   Save,
   AlertTriangle,
+  Shield,
+  Mail,
+  Phone,
+  User,
+  Filter,
+  RefreshCw,
+  CheckCircle,
+  Clock,
+  Settings,
 } from "lucide-react";
 import { useAuth } from "../../../contexts/auth-context";
 import { toast } from "react-toastify";
 import DialogModal from "../../Common/DialogModal";
+import { API_URL } from "../../../config";
 
 const UsersManagementPage = () => {
   const { token } = useAuth();
@@ -59,7 +69,7 @@ const UsersManagementPage = () => {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const response = await fetch("https://127.0.0.1:8000/api/admin/users", {
+      const response = await fetch(`${API_URL}/admin/users`, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -190,17 +200,14 @@ const UsersManagementPage = () => {
 
         try {
           // Ajouter un nouvel utilisateur
-          const response = await fetch(
-            "https://127.0.0.1:8000/api/admin/users/add",
-            {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify(userData),
-            }
-          );
+          const response = await fetch(`${API_URL}/admin/users/add`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(userData),
+          });
 
           console.log("Statut de la réponse (ajout):", response.status);
           const responseText = await response.text();
@@ -323,7 +330,7 @@ Cette action est irréversible.`,
           setDialog((prev) => ({ ...prev, show: false }));
 
           const response = await fetch(
-            `https://127.0.0.1:8000/api/admin/users/delete/${userId}`,
+            `${API_URL}/admin/users/delete/${userId}`,
             {
               method: "DELETE",
               headers: {
@@ -368,41 +375,68 @@ Cette action est irréversible.`,
 
   return (
     <div className="container mx-auto px-4 py-6 dark:bg-gray-900 min-h-screen">
-      {/* En-tête */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2 dark:text-white">
-            <Users className="text-blue-600 dark:text-blue-400" size={24} />
-            Gestion des Utilisateurs
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300">
-            {filteredUsers.length} utilisateur(s) trouvé(s)
-          </p>
-        </div>
+      {/* En-tête avec design amélioré */}
+      <div className="mb-8 animate-fadeIn">
+        <div className="mb-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-bold flex items-center gap-2 dark:text-white">
+                <Users className="text-blue-600 dark:text-blue-400" size={24} />
+                Gestion des Utilisateurs
+              </h1>
+              <p className="text-gray-600 dark:text-gray-300 flex items-center gap-2">
+                <CheckCircle
+                  size={16}
+                  className="text-blue-600 dark:text-blue-400"
+                />
+                <span className="font-medium">{filteredUsers.length}</span>{" "}
+                utilisateur(s) trouvé(s)
+              </p>
+            </div>
 
-        <button
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
-          onClick={() => {
-            setIsAddingUser(true);
-            setEditingUserId(null);
-          }}
-          disabled={isAddingUser || editingUserId !== null}
-        >
-          <UserPlus size={18} />
-          Ajouter un utilisateur
-        </button>
+            <button
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700
+                dark:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
+              onClick={() => {
+                setIsAddingUser(true);
+                setEditingUserId(null);
+              }}
+              disabled={isAddingUser || editingUserId !== null}
+            >
+              <UserPlus size={18} />
+              Ajouter un utilisateur
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Formulaire d'ajout/édition */}
+      {/* Formulaire d'ajout/édition avec design amélioré */}
       {(isAddingUser || editingUserId !== null) && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6 border border-gray-200 dark:border-gray-700">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold dark:text-white">
-              {isAddingUser ? "Ajouter un utilisateur" : "Modifier utilisateur"}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-8 border border-gray-200 dark:border-gray-700 animate-scaleIn">
+          <div className="flex justify-between items-center mb-6 border-b border-gray-100 dark:border-gray-700 pb-4">
+            <h2 className="text-xl font-semibold dark:text-white flex items-center gap-2">
+              {isAddingUser ? (
+                <>
+                  <UserPlus
+                    className="text-blue-600 dark:text-blue-400"
+                    size={22}
+                  />
+                  Ajouter un nouvel utilisateur
+                </>
+              ) : (
+                <>
+                  <Settings
+                    className="text-blue-600 dark:text-blue-400"
+                    size={22}
+                  />
+                  Modifier les informations de l'utilisateur
+                </>
+              )}
             </h2>
             <button
               onClick={cancelForm}
-              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-all duration-300
+                hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-full"
             >
               <X size={20} />
             </button>
@@ -430,101 +464,157 @@ Cette action est irréversible.`,
               e.preventDefault();
               saveUser();
             }}
+            className="space-y-6"
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Nom complet *
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Nom complet <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  required
-                />
+                <div className="relative">
+                  <User
+                    className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500"
+                    size={18}
+                  />
+                  <input
+                    type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500
+                      focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all duration-300"
+                    placeholder="Entrez le nom complet"
+                    required
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Email *
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Email <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  required
-                />
+                <div className="relative">
+                  <Mail
+                    className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500"
+                    size={18}
+                  />
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500
+                      focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all duration-300"
+                    placeholder="exemple@email.com"
+                    required
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Téléphone
                 </label>
-                <input
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                />
+                <div className="relative">
+                  <Phone
+                    className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500"
+                    size={18}
+                  />
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500
+                      focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all duration-300"
+                    placeholder="Numéro de téléphone"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Mot de passe{" "}
-                  {isAddingUser ? "*" : "(laisser vide pour ne pas modifier)"}
+                  {isAddingUser ? (
+                    <span className="text-red-500">*</span>
+                  ) : (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      (laisser vide pour ne pas modifier)
+                    </span>
+                  )}
                 </label>
-                <input
-                  type="password"
-                  name={randomPasswordFieldName.current}
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  required={isAddingUser}
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="off"
-                  spellCheck="false"
-                  data-form-type="other"
-                  data-lpignore="true"
-                  aria-autocomplete="none"
-                  readOnly
-                  onFocus={(e) => e.target.removeAttribute("readonly")}
-                />
+                <div className="relative">
+                  <Shield
+                    className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500"
+                    size={18}
+                  />
+                  <input
+                    type="password"
+                    name={randomPasswordFieldName.current}
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500
+                      focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all duration-300"
+                    placeholder={
+                      isAddingUser
+                        ? "Mot de passe"
+                        : "Nouveau mot de passe (optionnel)"
+                    }
+                    required={isAddingUser}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck="false"
+                    data-form-type="other"
+                    data-lpignore="true"
+                    aria-autocomplete="none"
+                    readOnly
+                    onFocus={(e) => e.target.removeAttribute("readonly")}
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Rôle
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Rôle <span className="text-red-500">*</span>
                 </label>
-                <select
-                  name="role"
-                  value={formData.role}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                >
-                  <option value="administrateur">Administrateur</option>
-                  <option value="formateur">Formateur</option>
-                  <option value="apprenant">Apprenant</option>
-                </select>
+                <div className="relative">
+                  <Shield
+                    className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500"
+                    size={18}
+                  />
+                  <select
+                    name="role"
+                    value={formData.role}
+                    onChange={handleInputChange}
+                    className="w-full pl-10 pr-10 py-3 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500
+                      focus:border-blue-500 dark:bg-gray-700 dark:text-white appearance-none transition-all duration-300"
+                  >
+                    <option value="administrateur">Administrateur</option>
+                    <option value="formateur">Formateur</option>
+                    <option value="apprenant">Apprenant</option>
+                  </select>
+                  <ChevronDown
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none"
+                    size={18}
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="mt-4 flex justify-end gap-2">
+            <div className="pt-4 flex justify-end gap-3 border-t border-gray-100 dark:border-gray-700 mt-6">
               <button
                 type="button"
                 onClick={cancelForm}
-                className="px-4 py-2 border rounded-lg text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700 dark:border-gray-600 transition-colors"
+                className="px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 hover:bg-gray-50
+                  dark:text-gray-300 dark:hover:bg-gray-700 transition-all duration-300 font-medium"
               >
                 Annuler
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 flex items-center gap-2 transition-colors"
+                className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700
+                  hover:to-indigo-700 flex items-center gap-2 transition-all duration-300 shadow-sm hover:shadow font-medium"
               >
                 <Save size={18} />
                 Sauvegarder
@@ -534,63 +624,65 @@ Cette action est irréversible.`,
         </div>
       )}
 
-      {/* Barre de filtres */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6 border border-gray-200 dark:border-gray-700">
-        <div className="flex flex-col md:flex-row gap-4">
+      {/* Barre de filtres optimisée */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-3 mb-6 border border-gray-200 dark:border-gray-700">
+        <div className="flex items-center gap-3">
           {/* Recherche */}
           <div className="relative flex-grow">
             <Search
               className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500"
-              size={18}
+              size={16}
             />
             <input
               type="search"
-              placeholder="Rechercher par nom ou email..."
-              className="pl-10 pr-4 py-2 w-full border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              placeholder="Rechercher par nom ou email."
+              className="pl-9 pr-3 py-2 w-full border border-gray-200 dark:border-gray-600 rounded-md
+                focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500
+                dark:bg-gray-700 dark:text-white text-sm"
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
-              autoComplete="chrome-off"
-              data-lpignore="true"
-              data-form-type="other"
-              aria-autocomplete="none"
-              readOnly
-              onFocus={(e) => e.target.removeAttribute("readonly")}
+              autoComplete="off"
             />
           </div>
 
           {/* Filtre par rôle */}
-          <div className="flex gap-2">
-            <div className="relative">
-              <select
-                className="appearance-none pl-4 pr-10 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                value={roleFilter}
-                onChange={(e) => {
-                  setRoleFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
-              >
-                <option value="all">Tous les rôles</option>
-                <option value="administrateur">Administrateurs</option>
-                <option value="formateur">Formateurs</option>
-                <option value="apprenant">Apprenants</option>
-              </select>
-              <ChevronDown
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none text-gray-400 dark:text-gray-500"
-                size={18}
-              />
-            </div>
+          <div className="relative w-[180px] flex-shrink-0">
+            <select
+              className="appearance-none pl-3 pr-8 py-2 w-full border border-gray-200 dark:border-gray-600 rounded-md
+                focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500
+                dark:bg-gray-700 dark:text-white text-sm"
+              value={roleFilter}
+              onChange={(e) => {
+                setRoleFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+            >
+              <option value="all">Tous les rôles</option>
+              <option value="administrateur">Administrateurs</option>
+              <option value="formateur">Formateurs</option>
+              <option value="apprenant">Apprenants</option>
+            </select>
+            <ChevronDown
+              className="absolute right-2.5 top-1/2 transform -translate-y-1/2 pointer-events-none text-gray-400 dark:text-gray-500"
+              size={16}
+            />
           </div>
         </div>
       </div>
 
-      {/* Tableau */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden border border-gray-200 dark:border-gray-700">
+      {/* Tableau amélioré */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden border border-gray-100 dark:border-gray-700 animate-fadeIn">
         {loading ? (
-          <div className="p-8 text-center dark:text-gray-300">
-            Chargement en cours...
+          <div className="p-12 text-center">
+            <div className="inline-block animate-pulse">
+              <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-gray-600 dark:text-gray-300 font-medium">
+                Chargement des utilisateurs...
+              </p>
+            </div>
           </div>
         ) : (
           <>
@@ -600,37 +692,31 @@ Cette action est irréversible.`,
                   <tr>
                     <th
                       scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                      className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider"
                     >
-                      Nom complet
+                      Utilisateur
                     </th>
                     <th
                       scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                      className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider"
                     >
-                      Email
+                      Contact
                     </th>
                     <th
                       scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                      className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider"
                     >
                       Rôle
                     </th>
                     <th
                       scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-                    >
-                      Téléphone
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                      className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider"
                     >
                       Statut
                     </th>
                     <th
                       scope="col"
-                      className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                      className="px-6 py-4 text-right text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider"
                     >
                       Actions
                     </th>
@@ -641,11 +727,14 @@ Cette action est irréversible.`,
                     currentUsers.map((user) => (
                       <tr
                         key={user.id}
-                        className="hover:bg-gray-50 dark:hover:bg-gray-700"
+                        className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                            <div
+                              className="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900
+                              flex items-center justify-center"
+                            >
                               <span className="text-blue-600 dark:text-blue-300 font-medium">
                                 {user.fullName
                                   .split(" ")
@@ -654,14 +743,24 @@ Cette action est irréversible.`,
                               </span>
                             </div>
                             <div className="ml-4">
-                              <div className="font-medium text-gray-900 dark:text-white">
+                              <div className="font-semibold text-gray-900 dark:text-white text-base">
                                 {user.fullName}
+                              </div>
+                              <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                ID: {user.id}
                               </div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-gray-500 dark:text-gray-300">
-                          {user.email}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 dark:text-white flex items-center gap-1.5 mb-1">
+                            <Mail size={14} className="text-gray-400" />
+                            {user.email}
+                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+                            <Phone size={14} className="text-gray-400" />
+                            {user.phone || "Non renseigné"}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
@@ -680,12 +779,10 @@ Cette action est irréversible.`,
                                 : "Apprenant"}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-gray-500 dark:text-gray-300">
-                          {user.phone || "-"}
-                        </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
-                            className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200`}
+                            className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
+                              bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
                           >
                             Actif
                           </span>
@@ -714,11 +811,17 @@ Cette action est irréversible.`,
                     ))
                   ) : (
                     <tr>
-                      <td
-                        colSpan="6"
-                        className="px-6 py-4 text-center text-gray-500 dark:text-gray-400"
-                      >
-                        Aucun utilisateur trouvé
+                      <td colSpan="5" className="px-6 py-12 text-center">
+                        <div className="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
+                          <Users size={40} className="mb-3 opacity-40" />
+                          <p className="text-lg font-medium">
+                            Aucun utilisateur trouvé
+                          </p>
+                          <p className="text-sm mt-1">
+                            Modifiez vos critères de recherche ou ajoutez un
+                            nouvel utilisateur
+                          </p>
+                        </div>
                       </td>
                     </tr>
                   )}
@@ -726,17 +829,22 @@ Cette action est irréversible.`,
               </table>
             </div>
 
-            {/* Pagination */}
+            {/* Pagination améliorée */}
             {filteredUsers.length > 0 && (
-              <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="text-sm text-gray-500 dark:text-gray-400">
-                  Page {currentPage} sur {totalPages} • Affichage de{" "}
+              <div className="px-6 py-5 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 px-4 py-2 rounded-lg">
+                  <span className="font-medium text-blue-600 dark:text-blue-400">
+                    Page {currentPage}
+                  </span>{" "}
+                  sur {totalPages} • Affichage de{" "}
                   <span className="font-medium">{indexOfFirstUser + 1}</span> à{" "}
                   <span className="font-medium">
                     {Math.min(indexOfLastUser, filteredUsers.length)}
                   </span>{" "}
                   sur{" "}
-                  <span className="font-medium">{filteredUsers.length}</span>{" "}
+                  <span className="font-medium text-blue-600 dark:text-blue-400">
+                    {filteredUsers.length}
+                  </span>{" "}
                   utilisateurs
                 </div>
 
@@ -744,42 +852,56 @@ Cette action est irréversible.`,
                   <button
                     onClick={prevPage}
                     disabled={currentPage === 1}
-                    className={`px-3 py-1 rounded-md border flex items-center gap-1 ${
+                    className={`px-4 py-2 rounded-xl border flex items-center gap-2 transition-all duration-300 ${
                       currentPage === 1
-                        ? "bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500"
-                        : "bg-white hover:bg-gray-50 text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300"
+                        ? "bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600 dark:border-gray-700"
+                        : "bg-white hover:bg-gray-50 text-gray-700 hover:text-blue-600 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 dark:border-gray-700"
                     }`}
                   >
                     <ChevronLeft size={18} />
-                    Précédent
+                    <span className="hidden sm:inline">Précédent</span>
                   </button>
 
-                  <div className="flex gap-1">
-                    {Array.from({ length: totalPages }, (_, i) => (
-                      <button
-                        key={i + 1}
-                        onClick={() => paginate(i + 1)}
-                        className={`w-8 h-8 rounded-md ${
-                          currentPage === i + 1
-                            ? "bg-blue-600 text-white"
-                            : "bg-white text-gray-700 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300"
-                        }`}
-                      >
-                        {i + 1}
-                      </button>
-                    ))}
+                  <div className="hidden md:flex gap-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      // Logique pour afficher les pages autour de la page courante
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => paginate(pageNum)}
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center font-medium transition-all duration-300 ${
+                            currentPage === pageNum
+                              ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm"
+                              : "bg-white text-gray-700 hover:bg-gray-50 hover:text-blue-600 border dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:border-gray-700"
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
                   </div>
 
                   <button
                     onClick={nextPage}
                     disabled={currentPage === totalPages}
-                    className={`px-3 py-1 rounded-md border flex items-center gap-1 ${
+                    className={`px-4 py-2 rounded-xl border flex items-center gap-2 transition-all duration-300 ${
                       currentPage === totalPages
-                        ? "bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500"
-                        : "bg-white hover:bg-gray-50 text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300"
+                        ? "bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600 dark:border-gray-700"
+                        : "bg-white hover:bg-gray-50 text-gray-700 hover:text-blue-600 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 dark:border-gray-700"
                     }`}
                   >
-                    Suivant
+                    <span className="hidden sm:inline">Suivant</span>
                     <ChevronRight size={18} />
                   </button>
                 </div>
@@ -789,7 +911,7 @@ Cette action est irréversible.`,
         )}
       </div>
 
-      {/* Boîte de dialogue pour les confirmations et notifications */}
+      {/* Boîte de dialogue pour les confirmations et notifications - Utilise le composant existant */}
       {dialog.show && (
         <DialogModal
           title={dialog.title}

@@ -57,7 +57,44 @@ const Login = () => {
     const result = await login(email, password, rememberMe);
 
     if (result.success) {
-      navigate("/admin");
+      // Rediriger l'utilisateur en fonction de son rôle
+      const { user } = result;
+
+      if (user) {
+        // Vérifier si l'utilisateur est approuvé
+        if (user.isApproved === false) {
+          setFormError(
+            "Votre compte est en attente d'approbation par un administrateur. Vous recevrez un email lorsque votre compte sera approuvé ou rejeté."
+          );
+          return;
+        }
+
+        // Rediriger en fonction du rôle
+        const role = user.role || (user.roles && user.roles[0]);
+
+        if (
+          role === "administrateur" ||
+          (user.roles && user.roles.includes("ROLE_ADMINISTRATEUR"))
+        ) {
+          navigate("/admin");
+        } else if (
+          role === "apprenant" ||
+          (user.roles && user.roles.includes("ROLE_APPRENANT"))
+        ) {
+          navigate("/apprenant");
+        } else if (
+          role === "formateur" ||
+          (user.roles && user.roles.includes("ROLE_FORMATEUR"))
+        ) {
+          navigate("/formateur");
+        } else {
+          // Redirection par défaut
+          navigate("/");
+        }
+      } else {
+        // Si aucune information utilisateur n'est disponible, rediriger vers la page d'accueil
+        navigate("/");
+      }
     } else if (result.status === "pending") {
       setFormError(
         "Votre compte est en attente d'approbation par un administrateur. Vous recevrez un email lorsque votre compte sera approuvé ou rejeté."

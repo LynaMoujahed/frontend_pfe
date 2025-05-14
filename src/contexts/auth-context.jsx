@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { API_URL } from "../config";
 
 const AuthContext = createContext();
 
@@ -51,14 +52,16 @@ export const AuthProvider = ({ children }) => {
   // Vérifier si l'utilisateur est déjà connecté au chargement
   useEffect(() => {
     const checkAuth = async () => {
+      console.log(
+        "Checking authentication with token:",
+        token ? "Token exists" : "No token"
+      );
       setLoading(true);
       try {
         if (token) {
-          console.log("Vérification du token d'authentification...");
-
           // Vérifier si le token est expiré
           if (isTokenExpired(token)) {
-            console.log("Token expiré, déconnexion de l'utilisateur");
+            console.log("Token is expired, removing token and user data");
             localStorage.removeItem("token");
             setToken(null);
             setUser(null);
@@ -67,11 +70,9 @@ export const AuthProvider = ({ children }) => {
           }
 
           // Récupérer les informations de l'utilisateur
-          console.log(
-            "Token valide, récupération des informations utilisateur..."
-          );
           try {
-            const response = await fetch("https://127.0.0.1:8000/api/user/me", {
+            console.log("Fetching user data from API");
+            const response = await fetch(`${API_URL}/user/me`, {
               headers: {
                 Authorization: `Bearer ${token}`,
                 "Content-Type": "application/json",
@@ -82,24 +83,43 @@ export const AuthProvider = ({ children }) => {
             if (response.ok) {
               const data = await response.json();
               console.log(
-                "Informations utilisateur récupérées avec succès:",
+                "User data received:",
                 data.user
+                  ? `ID: ${data.user.id}, Role: ${data.user.role}`
+                  : "No user data"
               );
+
+              // Vérifier que l'ID utilisateur est présent
+              if (data.user && !data.user.id) {
+                console.error(
+                  "User data received but ID is missing:",
+                  data.user
+                );
+                // Essayer de récupérer l'ID à partir d'autres propriétés si possible
+                if (data.user.userId) {
+                  console.log("Using userId property instead of id");
+                  data.user.id = data.user.userId;
+                } else if (data.user._id) {
+                  console.log("Using _id property instead of id");
+                  data.user.id = data.user._id;
+                } else {
+                  console.error("Could not find any ID property in user data");
+                }
+              }
+
               setUser(data.user);
 
-              // Si le token est sur le point d'expirer, afficher un avertissement
+              // Si le token est sur le point d'expirer, on pourrait implémenter un système de rafraîchissement du token ici
               if (isTokenNearExpiration(token)) {
-                console.log(
-                  "Token sur le point d'expirer, affichage d'un avertissement"
-                );
-                // On pourrait implémenter un système de rafraîchissement du token ici
+                console.log("Token is near expiration");
+                // Logique pour rafraîchir le token ou afficher un avertissement
               }
             } else {
-              // Token invalide ou expiré
               console.log(
-                "Réponse non OK de l'API, déconnexion de l'utilisateur. Status:",
+                "Invalid or expired token response:",
                 response.status
               );
+              // Token invalide ou expiré
               localStorage.removeItem("token");
               setToken(null);
               setUser(null);
@@ -113,7 +133,7 @@ export const AuthProvider = ({ children }) => {
             // Ne pas déconnecter l'utilisateur en cas d'erreur réseau temporaire
           }
         } else {
-          console.log("Aucun token trouvé, utilisateur non authentifié");
+          console.log("No token available, user is not authenticated");
           setUser(null);
         }
       } catch (error) {
@@ -124,6 +144,9 @@ export const AuthProvider = ({ children }) => {
         setError("Erreur de connexion au serveur");
       } finally {
         setLoading(false);
+        console.log(
+          "Authentication check completed, loading state set to false"
+        );
       }
     };
 
@@ -135,7 +158,7 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch("https://127.0.0.1:8000/api/login", {
+      const response = await fetch(`${API_URL}/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -149,8 +172,30 @@ export const AuthProvider = ({ children }) => {
       if (response.ok) {
         localStorage.setItem("token", data.token);
         setToken(data.token);
+
+        // Vérifier que l'ID utilisateur est présent
+        if (data.user && !data.user.id) {
+          console.error(
+            "User data received during login but ID is missing:",
+            data.user
+          );
+          // Essayer de récupérer l'ID à partir d'autres propriétés si possible
+          if (data.user.userId) {
+            console.log("Using userId property instead of id");
+            data.user.id = data.user.userId;
+          } else if (data.user._id) {
+            console.log("Using _id property instead of id");
+            data.user.id = data.user._id;
+          } else {
+            console.error(
+              "Could not find any ID property in user data during login"
+            );
+          }
+        }
+
         setUser(data.user);
-        return { success: true };
+
+        return { success: true, user: data.user };
       } else if (response.status === 403 && data.status === "pending") {
         // L'utilisateur est en attente d'approbation
         return {
@@ -176,7 +221,7 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch("https://127.0.0.1:8000/api/register", {
+      const response = await fetch(`${API_URL}/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -218,18 +263,15 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(
-        `https://127.0.0.1:8000/api/user/${userId}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(userData),
-          mode: "cors",
-        }
-      );
+      const response = await fetch(`${API_URL}/user/${userId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(userData),
+        mode: "cors",
+      });
 
       const data = await response.json();
 
@@ -273,19 +315,52 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(
-        `https://127.0.0.1:8000/api/user/${userId}/delete`,
-        {
-          method: "DELETE",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          mode: "cors",
-        }
-      );
+      console.log(`Tentative de suppression du compte utilisateur ${userId}`);
+      console.log(`Token utilisé: ${token ? "Présent" : "Absent"}`);
+
+      // Vérifier si le token est présent
+      if (!token) {
+        console.error("Tentative de suppression de compte sans token");
+        return { success: false, error: "Authentification requise" };
+      }
+
+      // Vérifier si le token est expiré
+      if (isTokenExpired(token)) {
+        console.error("Token expiré lors de la suppression du compte");
+        localStorage.removeItem("token");
+        setToken(null);
+        setUser(null);
+        return {
+          success: false,
+          error: "Session expirée, veuillez vous reconnecter",
+        };
+      }
+
+      const response = await fetch(`${API_URL}/user/${userId}/delete`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        mode: "cors",
+      });
+
+      console.log(`Réponse reçue: Status ${response.status}`);
+
+      // Vérifier si la réponse est au format JSON
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        console.error("La réponse n'est pas au format JSON:", contentType);
+        const textResponse = await response.text();
+        console.error("Contenu de la réponse non-JSON:", textResponse);
+        return {
+          success: false,
+          error: `Réponse non-JSON reçue (${response.status}): ${textResponse.substring(0, 100)}...`,
+        };
+      }
 
       const data = await response.json();
+      console.log("Données reçues:", data);
 
       if (response.ok) {
         // Déconnecter l'utilisateur après la suppression du compte
@@ -293,6 +368,18 @@ export const AuthProvider = ({ children }) => {
         setToken(null);
         setUser(null);
         return { success: true, message: data.message };
+      } else if (response.status === 401) {
+        // Token expiré ou invalide
+        console.error(
+          "Token expiré ou invalide lors de la suppression du compte"
+        );
+        localStorage.removeItem("token");
+        setToken(null);
+        setUser(null);
+        return {
+          success: false,
+          error: "Session expirée, veuillez vous reconnecter",
+        };
       } else {
         setError(data.message || "Erreur lors de la suppression du compte");
         return { success: false, error: data.message || data.errors };
@@ -310,11 +397,6 @@ export const AuthProvider = ({ children }) => {
   const getPendingUsers = async () => {
     setLoading(true);
     try {
-      console.log(
-        "Envoi de la requête à /api/admin/users/pending avec token:",
-        token ? "Token présent" : "Pas de token"
-      );
-
       // Vérifier si le token est présent
       if (!token) {
         console.error("Tentative d'accès à une ressource protégée sans token");
@@ -345,9 +427,6 @@ export const AuthProvider = ({ children }) => {
           const { timestamp, data } = JSON.parse(cachedData);
           // Utiliser le cache si les données ont moins de 30 secondes
           if (now - timestamp < 30000) {
-            console.log(
-              "Utilisation des données en cache pour les utilisateurs en attente"
-            );
             setLoading(false);
             return { success: true, users: data.users, fromCache: true };
           }
@@ -357,22 +436,16 @@ export const AuthProvider = ({ children }) => {
         }
       }
 
-      const response = await fetch(
-        "https://127.0.0.1:8000/api/admin/users/pending",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          mode: "cors",
-        }
-      );
-
-      console.log("Statut de la réponse:", response.status);
+      const response = await fetch(`${API_URL}/admin/users/pending`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        mode: "cors",
+      });
 
       // Vérifier si la réponse est au format JSON
       const contentType = response.headers.get("content-type");
-      console.log("Content-Type de la réponse:", contentType);
 
       if (!contentType || !contentType.includes("application/json")) {
         console.error("La réponse n'est pas au format JSON:", contentType);
@@ -385,7 +458,6 @@ export const AuthProvider = ({ children }) => {
       }
 
       const data = await response.json();
-      console.log("Données reçues:", data);
 
       if (response.ok) {
         if (!data.users) {
@@ -437,8 +509,6 @@ export const AuthProvider = ({ children }) => {
   const approveUser = async (userId) => {
     setLoading(true);
     try {
-      console.log(`Approbation de l'utilisateur ${userId}...`);
-
       // Vérifier si le token est présent
       if (!token) {
         console.error("Tentative d'approbation sans token");
@@ -457,19 +527,14 @@ export const AuthProvider = ({ children }) => {
         };
       }
 
-      const response = await fetch(
-        `https://127.0.0.1:8000/api/admin/users/approve/${userId}`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          mode: "cors",
-        }
-      );
-
-      console.log("Statut de la réponse d'approbation:", response.status);
+      const response = await fetch(`${API_URL}/admin/users/approve/${userId}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        mode: "cors",
+      });
 
       // Vérifier si la réponse est au format JSON
       const contentType = response.headers.get("content-type");
@@ -487,15 +552,11 @@ export const AuthProvider = ({ children }) => {
       }
 
       const data = await response.json();
-      console.log("Données reçues après approbation:", data);
 
       if (response.ok) {
         // Invalider le cache des utilisateurs en attente
         try {
           sessionStorage.removeItem("pendingUsers");
-          console.log(
-            "Cache des utilisateurs en attente invalidé après approbation"
-          );
         } catch (e) {
           console.error("Erreur lors de l'invalidation du cache:", e);
         }
@@ -533,8 +594,6 @@ export const AuthProvider = ({ children }) => {
   const rejectUser = async (userId, reason) => {
     setLoading(true);
     try {
-      console.log(`Rejet de l'utilisateur ${userId} avec raison: ${reason}...`);
-
       // Vérifier si le token est présent
       if (!token) {
         console.error("Tentative de rejet sans token");
@@ -553,20 +612,15 @@ export const AuthProvider = ({ children }) => {
         };
       }
 
-      const response = await fetch(
-        `https://127.0.0.1:8000/api/admin/users/reject/${userId}`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ reason }),
-          mode: "cors",
-        }
-      );
-
-      console.log("Statut de la réponse de rejet:", response.status);
+      const response = await fetch(`${API_URL}/admin/users/reject/${userId}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ reason }),
+        mode: "cors",
+      });
 
       // Vérifier si la réponse est au format JSON
       const contentType = response.headers.get("content-type");
@@ -584,13 +638,11 @@ export const AuthProvider = ({ children }) => {
       }
 
       const data = await response.json();
-      console.log("Données reçues après rejet:", data);
 
       if (response.ok) {
         // Invalider le cache des utilisateurs en attente
         try {
           sessionStorage.removeItem("pendingUsers");
-          console.log("Cache des utilisateurs en attente invalidé après rejet");
         } catch (e) {
           console.error("Erreur lors de l'invalidation du cache:", e);
         }
