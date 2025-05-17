@@ -107,6 +107,10 @@ export const AuthProvider = ({ children }) => {
                 }
               }
 
+              // Mettre à jour les données utilisateur dans localStorage
+              localStorage.setItem("user", JSON.stringify(data.user));
+              console.log("User data updated in localStorage:", data.user);
+
               setUser(data.user);
 
               // Si le token est sur le point d'expirer, on pourrait implémenter un système de rafraîchissement du token ici
@@ -193,6 +197,10 @@ export const AuthProvider = ({ children }) => {
           }
         }
 
+        // Stocker les données utilisateur dans localStorage
+        localStorage.setItem("user", JSON.stringify(data.user));
+        console.log("User data stored in localStorage:", data.user);
+
         setUser(data.user);
 
         return { success: true, user: data.user };
@@ -254,6 +262,8 @@ export const AuthProvider = ({ children }) => {
   // Fonction de déconnexion
   const logout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    console.log("User data and token removed from localStorage");
     setToken(null);
     setUser(null);
   };
@@ -277,7 +287,16 @@ export const AuthProvider = ({ children }) => {
 
       if (response.ok) {
         // Mettre à jour l'utilisateur dans le contexte
-        setUser((prevUser) => ({ ...prevUser, ...data.user }));
+        const updatedUser = { ...user, ...data.user };
+        setUser(updatedUser);
+
+        // Mettre à jour les données utilisateur dans localStorage
+        localStorage.setItem("user", JSON.stringify(updatedUser));
+        console.log(
+          "User data updated in localStorage after profile update:",
+          updatedUser
+        );
+
         return { success: true, message: data.message };
       } else {
         // Vérifier si c'est une erreur de conflit (username ou email déjà utilisé)
@@ -676,6 +695,71 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Fonction pour demander la réinitialisation du mot de passe
+  const forgotPassword = async (email) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/forgot-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+        mode: "cors",
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        return { success: true, message: data.message };
+      } else {
+        return { success: false, error: data.message };
+      }
+    } catch (error) {
+      console.error("Erreur lors de la demande de réinitialisation:", error);
+      return {
+        success: false,
+        error: "Erreur de connexion au serveur",
+      };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fonction pour réinitialiser le mot de passe
+  const resetPassword = async (token, password) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/reset-password/${token}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ password }),
+        mode: "cors",
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        return { success: true, message: data.message };
+      } else {
+        return { success: false, error: data.message };
+      }
+    } catch (error) {
+      console.error(
+        "Erreur lors de la réinitialisation du mot de passe:",
+        error
+      );
+      return {
+        success: false,
+        error: "Erreur de connexion au serveur",
+      };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const value = {
     user,
     token,
@@ -689,6 +773,8 @@ export const AuthProvider = ({ children }) => {
     getPendingUsers,
     approveUser,
     rejectUser,
+    forgotPassword,
+    resetPassword,
     isAuthenticated: !!user,
   };
 

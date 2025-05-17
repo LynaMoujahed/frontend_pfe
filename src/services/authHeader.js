@@ -6,6 +6,9 @@
 export default function authHeader() {
   const token = localStorage.getItem("token");
 
+  // Ajouter des logs pour le débogage
+  console.log("🔑 [authHeader] Token récupéré:", token ? "Présent" : "Absent");
+
   if (token) {
     // Ajouter des en-têtes CORS pour les requêtes authentifiées
     return {
@@ -14,6 +17,7 @@ export default function authHeader() {
       Accept: "application/json",
     };
   } else {
+    console.warn("⚠️ [authHeader] Aucun token trouvé dans localStorage");
     return {
       "Content-Type": "application/json",
       Accept: "application/json",

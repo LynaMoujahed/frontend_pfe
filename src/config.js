@@ -5,7 +5,7 @@
 // URL de base de l'API
 // Utiliser l'URL de l'API depuis les variables d'environnement ou une valeur par défaut
 export const API_URL =
-  import.meta.env.VITE_API_URL || "https://127.0.0.1:8000/api";
+  import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
 
 // Délai d'expiration des requêtes en millisecondes
 export const REQUEST_TIMEOUT = 30000;

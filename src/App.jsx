@@ -20,6 +20,8 @@ import FormateurPage from "./Components/Formateur/FormateurPage.jsx";
 import ProtectedRoute from "./Components/Auth/ProtectedRoute";
 import Login from "./Components/Auth/Login";
 import Register from "./Components/Auth/Register";
+import ForgotPassword from "./Components/Auth/ForgotPassword";
+import ResetPassword from "./Components/Auth/ResetPassword";
 import Unauthorized from "./Components/Auth/Unauthorized";
 
 function App() {
@@ -39,6 +41,14 @@ function App() {
     {
       path: "/unauthorized",
       element: <Unauthorized />,
+    },
+    {
+      path: "/forgot-password",
+      element: <ForgotPassword />,
+    },
+    {
+      path: "/reset-password/:token",
+      element: <ResetPassword />,
     },
     {
       path: "/admin",

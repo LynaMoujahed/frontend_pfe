@@ -8,18 +8,59 @@ import CourseDetails from "./Cours/CourseDetails";
 import Messagerie from "./Messagerie/Messagerie";
 import Reclamation from "./Reclamation/Reclamation";
 import Profile from "./Profile/Profile";
+import ChatbotWidget from "./Chatbot/ChatbotWidget";
 import { Routes, Route } from "react-router-dom";
 import { useMediaQuery } from "@uidotdev/usehooks";
 import { cn } from "../../utils/cn";
+import { useAuth } from "../../contexts/auth-context";
 
 import notificationService from "../../services/notificationService";
 
 const ApprenantPage = () => {
+  const { user, isAuthenticated } = useAuth();
   const isDesktopDevice = useMediaQuery("(min-width: 768px)");
   const [collapsed, setCollapsed] = useState(!isDesktopDevice);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const sidebarRef = useRef(null);
+
+  // Vérifier si l'utilisateur est connecté et stocker ses données dans localStorage
+  useEffect(() => {
+    console.log("🔍 [ApprenantPage] Vérification de l'authentification");
+    console.log("- isAuthenticated:", isAuthenticated);
+
+    if (user) {
+      console.log("🔍 [ApprenantPage] Utilisateur connecté:", user);
+      console.log("- ID:", user.id);
+      console.log("- Email:", user.email);
+      console.log("- Role:", user.role);
+
+      // Stocker les données utilisateur dans localStorage
+      localStorage.setItem("user", JSON.stringify(user));
+      console.log(
+        "✅ [ApprenantPage] Données utilisateur stockées dans localStorage"
+      );
+
+      // Vérifier que les données ont bien été stockées
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          console.log(
+            "✅ [ApprenantPage] Données utilisateur récupérées du localStorage:",
+            parsedUser
+          );
+        } catch (e) {
+          console.error(
+            "❌ [ApprenantPage] Erreur lors de la récupération des données utilisateur:",
+            e
+          );
+        }
+      }
+    } else {
+      console.warn("⚠️ [ApprenantPage] Aucun utilisateur connecté");
+    }
+  }, [user, isAuthenticated]);
 
   // Charger les notifications au chargement de la page
   useEffect(() => {
@@ -136,6 +177,9 @@ const ApprenantPage = () => {
           </Routes>
         </Layout>
       </div>
+
+      {/* Widget de chatbot AI */}
+      <ChatbotWidget userData={user} />
     </div>
   );
 };
